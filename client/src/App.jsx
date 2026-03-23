@@ -10,6 +10,7 @@ import Transactions from './pages/Transactions';
 import Admin from './pages/Admin';
 import Settings from './pages/Settings';
 import VerifyEmail from './pages/VerifyEmail';
+import InstallPWA from './components/InstallPWA';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+          <InstallPWA />
           <div className="app-bg" />
           <Routes>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

@@ -153,29 +153,29 @@ export default function Transactions() {
             <tbody>
               {filteredTransactions.map(tx => (
                 <tr key={tx.id}>
-                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  <td data-label="Date" style={{ whiteSpace: 'nowrap', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                     {new Date(tx.createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                   </td>
-                  <td>
+                  <td data-label="Vendor">
                     <div style={{ fontWeight: 500 }}>{tx.vendor || '—'}</div>
                     {tx.description && <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>{tx.description}</div>}
                   </td>
-                  <td style={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>{formatCurrency(tx.amount)}</td>
-                  <td>
+                  <td data-label="Amount" style={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>{formatCurrency(tx.amount)}</td>
+                  <td data-label="%">
                     {tx.percentage !== 100 && (
                       <span className="badge badge-info">{tx.percentage}%</span>
                     )}
                     {tx.percentage === 100 && <span style={{ color: 'var(--text-tertiary)' }}>100%</span>}
                   </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{formatCurrency(tx.effectiveAmount)}</td>
-                  <td>
+                  <td data-label="Effective" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(tx.effectiveAmount)}</td>
+                  <td data-label="Budget">
                     {tx.budgetTitle ? (
                       <span className="badge badge-success">{tx.budgetTitle}</span>
                     ) : (
                       <span className="badge badge-warning">Uncategorized</span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="Status">
                     {tx.needsReview ? (
                       <span className="badge badge-warning">Review</span>
                     ) : tx.categorizedBy === 'ai' ? (
@@ -184,7 +184,7 @@ export default function Transactions() {
                       <span className="badge badge-success">✓</span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="Actions">
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn-ghost btn-sm" onClick={() => openEdit(tx)} title="Edit">✏️</button>
                       <button className="btn-ghost btn-sm" onClick={() => handleDelete(tx.id)} title="Delete">🗑️</button>
