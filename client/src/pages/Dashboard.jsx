@@ -43,6 +43,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [pushPermission, setPushPermission] = useState('granted');
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -66,8 +67,12 @@ export default function Dashboard() {
     loadData();
     const interval = setInterval(() => loadData(true), 15000);
 
-    // Setup push notifications
-    if ('serviceWorker' in navigator && 'PushManager' in window && Notification.permission !== 'denied') {
+    if ('Notification' in window) {
+      setPushPermission(Notification.permission);
+    }
+
+    // Setup push notifications silently if already granted
+    if ('serviceWorker' in navigator && 'PushManager' in window && Notification.permission === 'granted') {
       setupPush();
     }
 
@@ -119,6 +124,20 @@ export default function Dashboard() {
         </div>
         <span className="last-updated">Live — {lastUpdated.toLocaleTimeString()}</span>
       </div>
+
+      {/* iOS Push Prompt (Requires User Gesture) */}
+      {pushPermission === 'default' && (
+        <div className="glass-card-static" style={{ padding: '16px 20px', marginBottom: 24, borderLeft: '3px solid var(--accent-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 4 }}>Enable Push Notifications</h3>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Get instant alerts on your lockscreen when bank transactions are categorized.</div>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={async () => {
+            await setupPush();
+            if ('Notification' in window) setPushPermission(Notification.permission);
+          }}>Enable Notifications</button>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="stat-grid">
