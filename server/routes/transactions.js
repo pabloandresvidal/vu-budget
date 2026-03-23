@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { resolveOwnerId } from './partner.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -8,6 +9,7 @@ router.use(authMiddleware);
 // List transactions with optional filters
 router.get('/', (req, res) => {
   try {
+    const ownerId = resolveOwnerId(req.user.id);
     const { budgetId, needsReview, startDate, endDate, limit = 50, offset = 0 } = req.query;
     let query = `
       SELECT t.*, b.title as budget_title
@@ -15,7 +17,7 @@ router.get('/', (req, res) => {
       LEFT JOIN budgets b ON t.budget_id = b.id
       WHERE t.user_id = ?
     `;
-    const params = [req.user.id];
+    const params = [ownerId];
 
     if (budgetId) {
       query += ' AND t.budget_id = ?';
@@ -39,7 +41,7 @@ router.get('/', (req, res) => {
     const transactions = db.prepare(query).all(...params);
 
     const countQuery = `SELECT COUNT(*) as total FROM transactions t WHERE t.user_id = ?`;
-    const { total } = db.prepare(countQuery).get(req.user.id);
+    const { total } = db.prepare(countQuery).get(ownerId);
 
     res.json({
       transactions: transactions.map(t => ({
@@ -67,13 +69,14 @@ router.get('/', (req, res) => {
 // Pending review transactions
 router.get('/pending', (req, res) => {
   try {
+    const ownerId = resolveOwnerId(req.user.id);
     const transactions = db.prepare(`
       SELECT t.*, b.title as budget_title
       FROM transactions t
       LEFT JOIN budgets b ON t.budget_id = b.id
       WHERE t.user_id = ? AND t.needs_review = 1
       ORDER BY t.created_at DESC
-    `).all(req.user.id);
+    `).all(ownerId);
 
     res.json(transactions.map(t => ({
       id: t.id,
@@ -99,12 +102,13 @@ router.get('/pending', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { budgetId, percentage, vendor, description } = req.body;
-    const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, ownerId);
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
-    // Validate budget belongs to user if provided
+    // Validate budget belongs to owner if provided
     if (budgetId !== undefined && budgetId !== null) {
-      const budget = db.prepare('SELECT id FROM budgets WHERE id = ? AND user_id = ?').get(budgetId, req.user.id);
+      const budget = db.prepare('SELECT id FROM budgets WHERE id = ? AND user_id = ?').get(budgetId, ownerId);
       if (!budget) return res.status(400).json({ error: 'Invalid budget' });
     }
 
@@ -120,7 +124,7 @@ router.put('/:id', (req, res) => {
       SET budget_id = ?, percentage = ?, effective_amount = ?, vendor = ?, description = ?,
           needs_review = 0, categorized_by = 'user'
       WHERE id = ? AND user_id = ?
-    `).run(newBudgetId, newPercentage, newEffective, newVendor, newDescription, req.params.id, req.user.id);
+    `).run(newBudgetId, newPercentage, newEffective, newVendor, newDescription, req.params.id, ownerId);
 
     const updated = db.prepare(`
       SELECT t.*, b.title as budget_title
@@ -151,7 +155,8 @@ router.put('/:id', (req, res) => {
 // Delete transaction
 router.delete('/:id', (req, res) => {
   try {
-    const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, ownerId);
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
     db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);

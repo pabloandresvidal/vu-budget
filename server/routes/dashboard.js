@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { resolveOwnerId } from './partner.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -8,24 +9,25 @@ router.use(authMiddleware);
 // Summary: total budget, total spent, remaining
 router.get('/summary', (req, res) => {
   try {
+    const ownerId = resolveOwnerId(req.user.id);
     const budgetSummary = db.prepare(`
       SELECT
         COALESCE(SUM(b.total_amount), 0) as total_budget
       FROM budgets b WHERE b.user_id = ?
-    `).get(req.user.id);
+    `).get(ownerId);
 
     const spentSummary = db.prepare(`
       SELECT COALESCE(SUM(t.effective_amount), 0) as total_spent
       FROM transactions t WHERE t.user_id = ? AND t.budget_id IS NOT NULL
-    `).get(req.user.id);
+    `).get(ownerId);
 
     const pendingCount = db.prepare(
       'SELECT COUNT(*) as count FROM transactions WHERE user_id = ? AND needs_review = 1'
-    ).get(req.user.id);
+    ).get(ownerId);
 
     const totalTransactions = db.prepare(
       'SELECT COUNT(*) as count FROM transactions WHERE user_id = ?'
-    ).get(req.user.id);
+    ).get(ownerId);
 
     res.json({
       totalBudget: budgetSummary.total_budget,
@@ -43,6 +45,7 @@ router.get('/summary', (req, res) => {
 // Spending by category (budget)
 router.get('/by-category', (req, res) => {
   try {
+    const ownerId = resolveOwnerId(req.user.id);
     const categories = db.prepare(`
       SELECT
         b.id,
@@ -54,13 +57,13 @@ router.get('/by-category', (req, res) => {
       WHERE b.user_id = ?
       GROUP BY b.id
       ORDER BY spent DESC
-    `).all(req.user.id);
+    `).all(ownerId);
 
     // Add uncategorized
     const uncategorized = db.prepare(`
       SELECT COALESCE(SUM(effective_amount), 0) as spent
       FROM transactions WHERE user_id = ? AND budget_id IS NULL
-    `).get(req.user.id);
+    `).get(ownerId);
 
     const result = categories.map(c => ({
       id: c.id,
@@ -91,6 +94,7 @@ router.get('/by-category', (req, res) => {
 router.get('/trend', (req, res) => {
   try {
     const { days = 30 } = req.query;
+    const ownerId = resolveOwnerId(req.user.id);
     const trend = db.prepare(`
       SELECT
         DATE(created_at) as date,
@@ -99,7 +103,7 @@ router.get('/trend', (req, res) => {
       WHERE user_id = ? AND created_at >= DATE('now', ?)
       GROUP BY DATE(created_at)
       ORDER BY date ASC
-    `).all(req.user.id, `-${Number(days)} days`);
+    `).all(ownerId, `-${Number(days)} days`);
 
     res.json(trend.map(t => ({ date: t.date, total: t.total })));
   } catch (err) {
@@ -112,6 +116,7 @@ router.get('/trend', (req, res) => {
 router.get('/top-vendors', (req, res) => {
   try {
     const { limit = 10 } = req.query;
+    const ownerId = resolveOwnerId(req.user.id);
     const vendors = db.prepare(`
       SELECT vendor, SUM(effective_amount) as total, COUNT(*) as count
       FROM transactions
@@ -119,7 +124,7 @@ router.get('/top-vendors', (req, res) => {
       GROUP BY vendor
       ORDER BY total DESC
       LIMIT ?
-    `).all(req.user.id, Number(limit));
+    `).all(ownerId, Number(limit));
 
     res.json(vendors.map(v => ({ vendor: v.vendor, total: v.total, count: v.count })));
   } catch (err) {

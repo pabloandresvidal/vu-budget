@@ -55,17 +55,21 @@ You must output ONLY valid JSON. Absolutely no markdown blocks, no \`\`\`json, n
 
   try {
     const model = client.getGenerativeModel({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-2.0-flash',
       generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
     });
+    console.log('[AI PIPELINE] Sending to Gemini. SMS:', smsText);
+    console.log('[AI PIPELINE] Budgets:', budgetList);
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
+
+    console.log('[AI PIPELINE] Raw Gemini response:', text);
 
     // Strip any accidental markdown fences or prefixes
     const cleaned = text.replace(/^```.*?\n/, '').replace(/\n?```$/, '').trim();
     const parsed = JSON.parse(cleaned);
 
-    console.log('Gemini result:', JSON.stringify(parsed));
+    console.log('[AI PIPELINE] Parsed result:', JSON.stringify(parsed));
 
     return {
       vendor: parsed.vendor || 'Unknown',
@@ -75,8 +79,8 @@ You must output ONLY valid JSON. Absolutely no markdown blocks, no \`\`\`json, n
       description: parsed.description || `Transaction at ${parsed.vendor || 'Unknown'}`
     };
   } catch (err) {
-    console.error('Gemini AI error:', err.message);
-    return fallbackParse(smsText);
+    console.error('[AI PIPELINE] Gemini error:', err.message, err.stack);
+    return fallbackParse(smsText, budgets);
   }
 }
 
@@ -84,7 +88,7 @@ You must output ONLY valid JSON. Absolutely no markdown blocks, no \`\`\`json, n
  * Improved regex-based fallback parser.
  * Handles: "$17.64", "17.64", "CAD 17.64", "USD17.64"
  */
-function fallbackParse(smsText) {
+function fallbackParse(smsText, budgets = []) {
   // Match amounts with or without currency symbols/codes
   const amountMatch = smsText.match(
     /(?:\$|CAD|USD|MXN)?\s*([\d,]+\.\d{2})(?:\s*(?:CAD|USD|MXN))?/i
@@ -104,11 +108,26 @@ function fallbackParse(smsText) {
     vendor = capsMatch ? capsMatch[1].trim() : 'Unknown Vendor';
   }
 
+  // Simple budget matching by checking if vendor name appears in budget title/description
+  let budgetId = null;
+  if (budgets.length > 0 && vendor !== 'Unknown Vendor') {
+    const lowerVendor = vendor.toLowerCase();
+    for (const b of budgets) {
+      const title = (b.title || '').toLowerCase();
+      const desc = (b.description || '').toLowerCase();
+      if (title.includes(lowerVendor) || desc.includes(lowerVendor) ||
+          lowerVendor.includes(title)) {
+        budgetId = b.id;
+        break;
+      }
+    }
+  }
+
   return {
     vendor,
     amount,
-    budgetId: null,
-    confidence: 0,
+    budgetId,
+    confidence: budgetId ? 0.3 : 0,
     description: `Transaction at ${vendor}`
   };
 }

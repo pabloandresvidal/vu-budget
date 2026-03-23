@@ -32,6 +32,7 @@ router.post('/:token', async (req, res) => {
     if (headerVal) {
       smsText = headerVal;
     }
+    console.log(`[WEBHOOK] Step 1 — Header "${config.header_name}" value:`, smsText || '(empty)');
 
     // Fallback: check default header, or extract aggressively from various body fields
     if (!smsText && req.body) {
@@ -47,6 +48,8 @@ router.post('/:token', async (req, res) => {
       return res.status(400).json({ error: 'No SMS content found in request' });
     }
 
+    console.log(`[WEBHOOK] Step 2 — Final SMS text: "${smsText}"`);
+
     // Get budgets from the primary account
     const budgets = db.prepare('SELECT id, title, description FROM budgets WHERE user_id = ?').all(ownerId);
 
@@ -56,6 +59,7 @@ router.post('/:token', async (req, res) => {
     // Determine if needs review — lower threshold so clear matches auto-categorize
     const needsReview = result.confidence < 0.4 || !result.budgetId ? 1 : 0;
     const effectiveAmount = result.amount;
+    console.log(`[WEBHOOK] Step 3 — AI result: vendor="${result.vendor}", amount=${result.amount}, budgetId=${result.budgetId}, confidence=${result.confidence}, needsReview=${needsReview}`);
 
     // Insert transaction under the primary account
     const txResult = db.prepare(`

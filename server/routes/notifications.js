@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { resolveOwnerId } from './partner.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -8,12 +9,13 @@ router.use(authMiddleware);
 // List notifications
 router.get('/', (req, res) => {
   try {
+    const ownerId = resolveOwnerId(req.user.id);
     const notifications = db.prepare(`
       SELECT * FROM notifications
       WHERE user_id = ?
       ORDER BY created_at DESC
       LIMIT 50
-    `).all(req.user.id);
+    `).all(ownerId);
 
     res.json(notifications.map(n => ({
       id: n.id,
@@ -31,9 +33,10 @@ router.get('/', (req, res) => {
 // Unread count
 router.get('/unread-count', (req, res) => {
   try {
+    const ownerId = resolveOwnerId(req.user.id);
     const result = db.prepare(
       'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0'
-    ).get(req.user.id);
+    ).get(ownerId);
     res.json({ count: result.count });
   } catch (err) {
     console.error('Unread count error:', err);
@@ -44,7 +47,8 @@ router.get('/unread-count', (req, res) => {
 // Mark as read
 router.put('/:id/read', (req, res) => {
   try {
-    db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(req.params.id, ownerId);
     res.json({ success: true });
   } catch (err) {
     console.error('Mark read error:', err);
@@ -55,7 +59,8 @@ router.put('/:id/read', (req, res) => {
 // Mark all as read
 router.put('/read-all', (req, res) => {
   try {
-    db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').run(req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').run(ownerId);
     res.json({ success: true });
   } catch (err) {
     console.error('Mark all read error:', err);

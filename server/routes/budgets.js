@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { resolveOwnerId } from './partner.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -8,6 +9,7 @@ router.use(authMiddleware);
 // List budgets for current user
 router.get('/', (req, res) => {
   try {
+    const ownerId = resolveOwnerId(req.user.id);
     const budgets = db.prepare(`
       SELECT b.*,
         COALESCE(SUM(t.effective_amount), 0) as spent_amount
@@ -16,7 +18,7 @@ router.get('/', (req, res) => {
       WHERE b.user_id = ?
       GROUP BY b.id
       ORDER BY b.created_at DESC
-    `).all(req.user.id);
+    `).all(ownerId);
 
     res.json(budgets.map(b => ({
       id: b.id,
@@ -41,9 +43,10 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Title and totalAmount are required' });
     }
 
+    const ownerId = resolveOwnerId(req.user.id);
     const result = db.prepare(
       'INSERT INTO budgets (user_id, title, description, total_amount) VALUES (?, ?, ?, ?)'
-    ).run(req.user.id, title, description || '', totalAmount);
+    ).run(ownerId, title, description || '', totalAmount);
 
     res.status(201).json({
       id: result.lastInsertRowid,
@@ -63,7 +66,8 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { title, description, totalAmount } = req.body;
-    const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, ownerId);
     if (!budget) return res.status(404).json({ error: 'Budget not found' });
 
     db.prepare(
@@ -73,7 +77,7 @@ router.put('/:id', (req, res) => {
       description ?? budget.description,
       totalAmount ?? budget.total_amount,
       req.params.id,
-      req.user.id
+      ownerId
     );
 
     const updated = db.prepare(`
@@ -99,7 +103,8 @@ router.put('/:id', (req, res) => {
 // Delete budget
 router.delete('/:id', (req, res) => {
   try {
-    const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, ownerId);
     if (!budget) return res.status(404).json({ error: 'Budget not found' });
 
     // Set transactions in this budget to uncategorized

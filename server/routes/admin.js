@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { resolveOwnerId } from './partner.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -9,7 +10,8 @@ router.use(authMiddleware);
 // List webhook configs
 router.get('/', (req, res) => {
   try {
-    const configs = db.prepare('SELECT * FROM webhook_configs WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    const configs = db.prepare('SELECT * FROM webhook_configs WHERE user_id = ? ORDER BY created_at DESC').all(ownerId);
     res.json(configs.map(c => ({
       id: c.id,
       name: c.name,
@@ -31,10 +33,11 @@ router.post('/', (req, res) => {
     const { name, headerName } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
+    const ownerId = resolveOwnerId(req.user.id);
     const secretToken = uuidv4();
     const result = db.prepare(
       'INSERT INTO webhook_configs (user_id, name, header_name, secret_token) VALUES (?, ?, ?, ?)'
-    ).run(req.user.id, name, headerName || 'X-SMS-Body', secretToken);
+    ).run(ownerId, name, headerName || 'X-SMS-Body', secretToken);
 
     res.status(201).json({
       id: result.lastInsertRowid,
@@ -54,7 +57,8 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { name, headerName, isActive } = req.body;
-    const config = db.prepare('SELECT * FROM webhook_configs WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    const config = db.prepare('SELECT * FROM webhook_configs WHERE id = ? AND user_id = ?').get(req.params.id, ownerId);
     if (!config) return res.status(404).json({ error: 'Webhook config not found' });
 
     db.prepare(
@@ -84,7 +88,8 @@ router.put('/:id', (req, res) => {
 // Delete webhook config
 router.delete('/:id', (req, res) => {
   try {
-    const config = db.prepare('SELECT * FROM webhook_configs WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    const config = db.prepare('SELECT * FROM webhook_configs WHERE id = ? AND user_id = ?').get(req.params.id, ownerId);
     if (!config) return res.status(404).json({ error: 'Webhook config not found' });
 
     db.prepare('DELETE FROM webhook_configs WHERE id = ?').run(req.params.id);
@@ -98,7 +103,8 @@ router.delete('/:id', (req, res) => {
 // Regenerate secret token
 router.post('/:id/regenerate', (req, res) => {
   try {
-    const config = db.prepare('SELECT * FROM webhook_configs WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const ownerId = resolveOwnerId(req.user.id);
+    const config = db.prepare('SELECT * FROM webhook_configs WHERE id = ? AND user_id = ?').get(req.params.id, ownerId);
     if (!config) return res.status(404).json({ error: 'Webhook config not found' });
 
     const newToken = uuidv4();
