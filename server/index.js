@@ -24,6 +24,10 @@ import notificationRoutes from './routes/notifications.js';
 import partnerRoutes from './routes/partner.js';
 import settingsRoutes from './routes/settings.js';
 import pushRoutes from './routes/push.js';
+import ignoredPatternsRoutes from './routes/ignoredPatterns.js';
+
+import { startResetScheduler } from './services/budgetReset.js';
+import { startCronScheduler } from './services/cron.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -73,6 +77,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/partner', partnerRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/ignored-patterns', ignoredPatternsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -90,4 +95,6 @@ if (process.env.NODE_ENV === 'production') {
 
 app.listen(PORT, () => {
   console.log(`🚀 VU Budget server running on http://localhost:${PORT}`);
+  startResetScheduler();
+  startCronScheduler();
 });

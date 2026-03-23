@@ -51,6 +51,16 @@ router.post('/:token', async (req, res) => {
 
     console.log(`[WEBHOOK] Step 2 — Final SMS text: "${smsText}"`);
 
+    // Check against user's AI exclusion rules
+    const ignoredPatterns = db.prepare('SELECT pattern FROM ignored_patterns WHERE user_id = ?').all(ownerId);
+    const smsLower = smsText.toLowerCase();
+    const matchedPattern = ignoredPatterns.find(p => smsLower.includes(p.pattern.toLowerCase()));
+    
+    if (matchedPattern) {
+      console.log(`[WEBHOOK] Dropped! SMS matches AI exception rule: "${matchedPattern.pattern}"`);
+      return res.status(200).json({ ignored: true, reason: 'Matched ignore pattern', pattern: matchedPattern.pattern });
+    }
+
     // Get budgets from the primary account
     const budgets = db.prepare('SELECT id, title, description FROM budgets WHERE user_id = ?').all(ownerId);
 

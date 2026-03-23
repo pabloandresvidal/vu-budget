@@ -104,7 +104,15 @@ router.post('/login', async (req, res) => {
 
     res.json({
       token,
-      user: { id: user.id, username: user.username, displayName: user.display_name }
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        displayName: user.display_name,
+        notify_budget_updates: Boolean(user.notify_budget_updates),
+        notify_tx_updates: Boolean(user.notify_tx_updates),
+        notify_weekly_summary: Boolean(user.notify_weekly_summary),
+        notify_high_spending: Boolean(user.notify_high_spending)
+      }
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -146,9 +154,18 @@ router.post('/resend-verification', async (req, res) => {
 
 // GET /api/auth/me
 router.get('/me', authMiddleware, (req, res) => {
-  const user = db.prepare('SELECT id, username, display_name, created_at FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ id: user.id, username: user.username, displayName: user.display_name, createdAt: user.created_at });
+  res.json({ 
+    id: user.id, 
+    username: user.username, 
+    displayName: user.display_name, 
+    createdAt: user.created_at,
+    notify_budget_updates: Boolean(user.notify_budget_updates),
+    notify_tx_updates: Boolean(user.notify_tx_updates),
+    notify_weekly_summary: Boolean(user.notify_weekly_summary),
+    notify_high_spending: Boolean(user.notify_high_spending)
+  });
 });
 
 export default router;

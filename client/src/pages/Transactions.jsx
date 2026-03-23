@@ -73,6 +73,19 @@ export default function Transactions() {
     } catch (err) { alert(err.message); }
   }
 
+  async function muteVendor(vendor) {
+    if (!vendor || vendor.trim() === '' || vendor === '—') {
+      return alert("This transaction has no distinct vendor name to ignore.");
+    }
+    if (!confirm(`Are you sure you want to permanently ignore all future text messages containing "${vendor}"?`)) return;
+    try {
+      await api.addIgnoredPattern(vendor);
+      alert(`Successfully muted "${vendor}". You can un-hide this rule in Settings.`);
+    } catch (e) {
+      alert(e.message || 'Failed to ignore vendor');
+    }
+  }
+
   const pendingCount = transactions.filter(t => t.needsReview).length;
 
   const filteredTransactions = transactions.filter(t => {
@@ -187,6 +200,7 @@ export default function Transactions() {
                   <td data-label="Actions">
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn-ghost btn-sm" onClick={() => openEdit(tx)} title="Edit">✏️</button>
+                      <button className="btn-ghost btn-sm" onClick={() => muteVendor(tx.vendor)} title="Mute future texts from this vendor">🔇</button>
                       <button className="btn-ghost btn-sm" onClick={() => handleDelete(tx.id)} title="Delete">🗑️</button>
                     </div>
                   </td>

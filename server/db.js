@@ -87,6 +87,14 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS ignored_patterns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    pattern TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 // Run migrations for existing databases (add new columns if they don't exist)
@@ -101,6 +109,12 @@ try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_partner_code ON users(partn
 runMigration(`ALTER TABLE users ADD COLUMN linked_to INTEGER REFERENCES users(id) ON DELETE SET NULL`);
 runMigration(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 1`);
 runMigration(`ALTER TABLE users ADD COLUMN verify_token TEXT`);
+
+// Notification Preferences
+runMigration(`ALTER TABLE users ADD COLUMN notify_budget_updates INTEGER DEFAULT 1`);
+runMigration(`ALTER TABLE users ADD COLUMN notify_tx_updates INTEGER DEFAULT 1`);
+runMigration(`ALTER TABLE users ADD COLUMN notify_weekly_summary INTEGER DEFAULT 1`);
+runMigration(`ALTER TABLE users ADD COLUMN notify_high_spending INTEGER DEFAULT 1`);
 
 // Budget automation and UI features
 runMigration(`ALTER TABLE budgets ADD COLUMN auto_reset INTEGER DEFAULT 0`);

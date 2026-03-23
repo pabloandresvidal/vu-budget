@@ -13,20 +13,32 @@ export default function Settings() {
   const [email, setEmail] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(true);
 
+  const [notifyBudget, setNotifyBudget] = useState(true);
+  const [notifyTx, setNotifyTx] = useState(true);
+  const [notifyWeekly, setNotifyWeekly] = useState(true);
+  const [notifyHighSpent, setNotifyHighSpent] = useState(true);
+  const [ignoredPatterns, setIgnoredPatterns] = useState([]);
+
   useEffect(() => { fetchAll(); }, []);
 
   async function fetchAll() {
     setLoading(true);
     try {
-      const [prof, part] = await Promise.all([
+      const [prof, part, patterns] = await Promise.all([
         api.getProfile(),
-        api.getPartnerCode()
+        api.getPartnerCode(),
+        api.getIgnoredPatterns()
       ]);
       setProfile(prof);
       setPartner(part);
       setDisplayName(prof.displayName || '');
       setEmail(prof.email || '');
       setEmailNotifications(prof.emailNotifications !== false);
+      setNotifyBudget(prof.notify_budget_updates !== false);
+      setNotifyTx(prof.notify_tx_updates !== false);
+      setNotifyWeekly(prof.notify_weekly_summary !== false);
+      setNotifyHighSpent(prof.notify_high_spending !== false);
+      setIgnoredPatterns(patterns || []);
     } catch (e) {
       showMsg('error', 'Failed to load settings');
     } finally {
@@ -43,12 +55,31 @@ export default function Settings() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.updateProfile({ displayName, email, emailNotifications });
+      await api.updateProfile({ 
+        displayName, 
+        email, 
+        emailNotifications,
+        notify_budget_updates: notifyBudget,
+        notify_tx_updates: notifyTx,
+        notify_weekly_summary: notifyWeekly,
+        notify_high_spending: notifyHighSpent
+      });
       showMsg('success', 'Profile updated successfully!');
     } catch (e) {
       showMsg('error', e.message || 'Failed to save profile');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function unMute(id) {
+    if (!confirm('Un-ignore this pattern? Future texts matching this will be categorized by AI again.')) return;
+    try {
+      await api.deleteIgnoredPattern(id);
+      setIgnoredPatterns(prev => prev.filter(p => p.id !== id));
+      showMsg('success', 'Pattern un-ignored successfully!');
+    } catch (e) {
+      showMsg('error', 'Failed to remove pattern');
     }
   }
 
@@ -128,12 +159,62 @@ export default function Settings() {
             <input type="checkbox" id="emailNotif" className="toggle" checked={emailNotifications} onChange={e => setEmailNotifications(e.target.checked)} />
             <label htmlFor="emailNotif" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Email me when a transaction needs review</label>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <input type="checkbox" id="notifyBudget" className="toggle" checked={notifyBudget} onChange={e => setNotifyBudget(e.target.checked)} />
+            <label htmlFor="notifyBudget" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Push Alert: When budget limits or titles change</label>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <input type="checkbox" id="notifyTx" className="toggle" checked={notifyTx} onChange={e => setNotifyTx(e.target.checked)} />
+            <label htmlFor="notifyTx" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Push Alert: When transactions are manually modified</label>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <input type="checkbox" id="notifyWeekly" className="toggle" checked={notifyWeekly} onChange={e => setNotifyWeekly(e.target.checked)} />
+            <label htmlFor="notifyWeekly" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Push Alert: Weekly spending summary on Sundays</label>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <input type="checkbox" id="notifyHighSpent" className="toggle" checked={notifyHighSpent} onChange={e => setNotifyHighSpent(e.target.checked)} />
+            <label htmlFor="notifyHighSpent" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Push Alert: Emergency high spending velocity risk</label>
+          </div>
           <div>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? 'Saving…' : '💾 Save Profile'}
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Ignored AI Patterns */}
+      <div className="glass-card-static settings-section" style={{ padding: 24, marginBottom: 24 }}>
+        <h2 className="settings-section-title">🤖 AI Transaction Exceptions</h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+          Any incoming bank text messages matching these patterns will be permanently ignored by the AI and will not be recorded.
+        </p>
+        {ignoredPatterns.length === 0 ? (
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>No excluded vendors... yet. (Add these directly from the Transactions page)</div>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Pattern</th>
+                <th>Date Added</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ignoredPatterns.map(p => (
+                <tr key={p.id}>
+                  <td data-label="Pattern" style={{ fontFamily: 'monospace', fontWeight: 600 }}>{p.pattern}</td>
+                  <td data-label="Date">
+                    {new Date(p.created_at).toLocaleDateString()}
+                  </td>
+                  <td data-label="Action">
+                    <button type="button" className="btn-ghost btn-sm" onClick={() => unMute(p.id)}>Un-hide</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Partner Linking */}

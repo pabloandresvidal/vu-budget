@@ -72,6 +72,11 @@ export const api = {
   getProfile: () => request('/settings/profile'),
   updateProfile: (data) => request('/settings/profile', { method: 'PUT', body: JSON.stringify(data) }),
 
+  // Ignored Patterns
+  getIgnoredPatterns: () => request('/ignored-patterns'),
+  addIgnoredPattern: (pattern) => request('/ignored-patterns', { method: 'POST', body: JSON.stringify({ pattern }) }),
+  deleteIgnoredPattern: (id) => request(`/ignored-patterns/${id}`, { method: 'DELETE' }),
+
   // Partner
   getPartnerCode: () => request('/partner/code'),
   joinPartner: (code) => request('/partner/join', { method: 'POST', body: JSON.stringify({ code }) }),

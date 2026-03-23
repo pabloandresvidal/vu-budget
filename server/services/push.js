@@ -80,6 +80,28 @@ export async function sendPushNotification(userId, payload) {
 }
 
 /**
+ * Notify the linked partner if they have the respective notification setting enabled.
+ */
+export async function notifyPartnerOfChange(reqUserId, ownerId, eventType, title, body, url) {
+  try {
+    const partner = db.prepare(`
+      SELECT id, notify_budget_updates, notify_tx_updates 
+      FROM users 
+      WHERE (linked_to = ? OR id = ?) AND id != ?
+    `).get(ownerId, ownerId, reqUserId);
+
+    if (!partner) return;
+
+    if (eventType === 'budget' && !partner.notify_budget_updates) return;
+    if (eventType === 'tx' && !partner.notify_tx_updates) return;
+
+    await sendPushNotification(partner.id, { title, body, data: { url } });
+  } catch (err) {
+    console.error('[PUSH] Failed to notify partner:', err);
+  }
+}
+
+/**
  * Get the public VAPID key for the frontend.
  */
 export function getVapidPublicKey() {

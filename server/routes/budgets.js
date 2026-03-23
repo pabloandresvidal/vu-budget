@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { resolveOwnerId } from './partner.js';
+import { notifyPartnerOfChange } from '../services/push.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -92,6 +93,9 @@ router.put('/:id', (req, res) => {
       WHERE b.id = ? GROUP BY b.id
     `).get(req.params.id);
 
+    notifyPartnerOfChange(req.user.id, ownerId, 'budget', '💳 Budget Updated', 
+      `${req.user.username} updated the "${updated.title}" budget.`, '/budgets');
+
     res.json({
       id: updated.id,
       title: updated.title,
@@ -118,6 +122,9 @@ router.delete('/:id', (req, res) => {
     // Set transactions in this budget to uncategorized
     db.prepare('UPDATE transactions SET budget_id = NULL, needs_review = 1 WHERE budget_id = ?').run(req.params.id);
     db.prepare('DELETE FROM budgets WHERE id = ?').run(req.params.id);
+
+    notifyPartnerOfChange(req.user.id, ownerId, 'budget', '🗑️ Budget Deleted', 
+      `${req.user.username} deleted the "${budget.title}" budget.`, '/budgets');
 
     res.json({ success: true });
   } catch (err) {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { resolveOwnerId } from './partner.js';
+import { notifyPartnerOfChange } from '../services/push.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -132,6 +133,9 @@ router.put('/:id', (req, res) => {
       WHERE t.id = ?
     `).get(req.params.id);
 
+    notifyPartnerOfChange(req.user.id, ownerId, 'tx', '📝 Transaction Edited', 
+      `${req.user.username} updated the $${updated.amount} transaction at ${updated.vendor}.`, '/transactions');
+
     res.json({
       id: updated.id,
       budgetId: updated.budget_id,
@@ -160,6 +164,10 @@ router.delete('/:id', (req, res) => {
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
     db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+
+    notifyPartnerOfChange(req.user.id, ownerId, 'tx', '🗑️ Transaction Deleted', 
+      `${req.user.username} deleted the $${tx.amount} transaction at ${tx.vendor}.`, '/transactions');
+
     res.json({ success: true });
   } catch (err) {
     console.error('Delete transaction error:', err);
