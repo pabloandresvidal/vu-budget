@@ -14,11 +14,11 @@ router.put('/profile', (req, res) => {
 
   if (displayName !== undefined) {
     updates.push('display_name = ?');
-    values.push(displayName.trim() || null);
+    values.push((displayName || '').trim() || null);
   }
   if (email !== undefined) {
     updates.push('email = ?');
-    values.push(email.trim() || null);
+    values.push((email || '').trim() || null);
   }
   if (emailNotifications !== undefined) {
     updates.push('email_notifications = ?');

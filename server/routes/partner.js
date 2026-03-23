@@ -30,7 +30,7 @@ router.get('/code', (req, res) => {
   if (!user.partner_code) {
     const code = uuidv4().split('-')[0].toUpperCase(); // e.g. "A1B2C3D4"
     db.prepare('UPDATE users SET partner_code = ? WHERE id = ?').run(code, user.id);
-    user = db.prepare('SELECT id, partner_code, display_name FROM users WHERE id = ?').get(req.user.id);
+    user.partner_code = code;
   }
 
   // Get linked partner info if any

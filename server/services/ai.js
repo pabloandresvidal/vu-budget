@@ -32,13 +32,13 @@ Available budgets:
 ${budgetList}
 
 Instructions:
-- Extract the vendor/merchant name (e.g. "Costco", "McDonald's", "Amazon")
+- Extract the vendor name exactly (e.g. "Costco", "McDonald's", "Amazon", "Uber")
+- Make logical deductions for vendors. Example: "Costco", "Loblaws", "Walmart", "Metro" = Groceries/Food. "Esso", "Shell" = Gas/Transport.
 - Extract the transaction amount as a positive number (look for patterns like "17.64", "$17.64", "CAD 17.64")
-- Match the vendor to the most appropriate budget based on the vendor name and budget descriptions
-- Set confidence 0.8+ when the match is very clear (e.g. grocery store → Groceries budget)
-- Set confidence 0.5-0.79 when it's a reasonable guess
-- Set confidence below 0.5 when you're unsure or no budget matches
-- If no budgets exist or none match at all, set budgetId to null and confidence to 0
+- Match the vendor to the most appropriate budget based on the vendor name and budget descriptions.
+- Set confidence to 0.8+ when the match is clear or reasonably deducible (e.g., matching Costco to a Groceries budget).
+- Only set confidence below 0.5 when you have absolutely no idea or no budgets match.
+- If no budgets exist, set budgetId to null and confidence to 0.
 
 Return ONLY this JSON (no markdown, no explanation):
 {
@@ -51,8 +51,8 @@ Return ONLY this JSON (no markdown, no explanation):
 
   try {
     const model = client.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+      model: 'gemini-1.5-pro',
+      generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
     });
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();

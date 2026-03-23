@@ -1,26 +1,35 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
   const { register } = useAuth();
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
     if (password !== confirm) {
-      setError('Passwords do not match');
-      return;
+      return setError('Passwords do not match');
     }
     setLoading(true);
     try {
-      await register(username, password, displayName || username);
+      const res = await register({ username, password, email });
+      if (res.requiresVerification) {
+        setSuccessMsg(res.message);
+        // Clear form
+        setUsername(''); setEmail(''); setPassword(''); setConfirm('');
+      } else {
+        navigate('/'); // Logged in immediately
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -39,34 +48,41 @@ export default function Register() {
         <p className="auth-subtitle">Start managing your budget with AI</p>
 
         {error && <div className="auth-error">{error}</div>}
+        {successMsg && (
+          <div style={{ padding: '16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, fontSize: '0.9rem', color: '#93c5fd', marginBottom: 24, textAlign: 'center' }}>
+            {successMsg}
+          </div>
+        )}
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label htmlFor="reg-display">Display Name</label>
-            <input id="reg-display" className="input" type="text" placeholder="Your name"
-              value={displayName} onChange={e => setDisplayName(e.target.value)} autoFocus />
-          </div>
-          <div className="input-group">
-            <label htmlFor="reg-username">Username</label>
-            <input id="reg-username" className="input" type="text" placeholder="Choose a username"
-              value={username} onChange={e => setUsername(e.target.value)} required />
-          </div>
-          <div className="input-group">
-            <label htmlFor="reg-password">Password</label>
-            <input id="reg-password" className="input" type="password" placeholder="Min 6 characters"
-              value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-          </div>
-          <div className="input-group">
-            <label htmlFor="reg-confirm">Confirm Password</label>
-            <input id="reg-confirm" className="input" type="password" placeholder="Repeat password"
-              value={confirm} onChange={e => setConfirm(e.target.value)} required />
-          </div>
-          <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Account'}
-          </button>
-        </form>
+        {!successMsg && (
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <div className="input-group">
+              <label htmlFor="reg-email">Email Address</label>
+              <input id="reg-email" className="input" type="email" placeholder="you@example.com"
+                value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+            </div>
+            <div className="input-group">
+              <label htmlFor="reg-username">Username</label>
+              <input id="reg-username" className="input" type="text" placeholder="Choose a username"
+                value={username} onChange={e => setUsername(e.target.value)} required minLength={3} />
+            </div>
+            <div className="input-group">
+              <label htmlFor="reg-password">Password</label>
+              <input id="reg-password" className="input" type="password" placeholder="Min 6 characters"
+                value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+            </div>
+            <div className="input-group">
+              <label htmlFor="reg-confirm">Confirm Password</label>
+              <input id="reg-confirm" className="input" type="password" placeholder="Repeat password"
+                value={confirm} onChange={e => setConfirm(e.target.value)} required minLength={6} />
+            </div>
+            <button className="btn btn-primary" type="submit" disabled={loading}>
+              {loading ? 'Creating...' : 'Create Account'}
+            </button>
+          </form>
+        )}
 
-        <div className="auth-footer">
+        <div className="auth-footer" style={{ marginTop: 24 }}>
           Already have an account? <Link to="/login">Sign in</Link>
         </div>
       </div>

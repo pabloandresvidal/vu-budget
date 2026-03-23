@@ -55,7 +55,7 @@ router.post('/:userId', async (req, res) => {
     const result = await categorizeSMS(smsText, budgets);
 
     // Determine if needs review — lower threshold so clear matches auto-categorize
-    const needsReview = result.confidence < 0.55 || !result.budgetId ? 1 : 0;
+    const needsReview = result.confidence < 0.4 || !result.budgetId ? 1 : 0;
     const effectiveAmount = result.amount;
 
     // Insert transaction under the primary account

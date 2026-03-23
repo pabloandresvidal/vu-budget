@@ -39,12 +39,14 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const register = async (username, password, displayName) => {
-    const data = await api.register(username, password, displayName);
-    localStorage.setItem('vu_token', data.token);
-    localStorage.setItem('vu_user', JSON.stringify(data.user));
-    setUser(data.user);
-    return data;
+  const register = async (data) => {
+    const res = await api.register(data);
+    if (!res.requiresVerification) {
+      localStorage.setItem('vu_token', res.token);
+      localStorage.setItem('vu_user', JSON.stringify(res.user));
+      setUser(res.user);
+    }
+    return res;
   };
 
   const logout = () => {
