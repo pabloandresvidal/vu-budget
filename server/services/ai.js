@@ -55,7 +55,7 @@ You must output ONLY valid JSON. Absolutely no markdown blocks, no \`\`\`json, n
 
   try {
     const model = client.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
     });
     console.log('[AI PIPELINE] Sending to Gemini. SMS:', smsText);
