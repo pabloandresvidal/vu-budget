@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../utils/api';
@@ -11,8 +11,11 @@ export default function Layout() {
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [toast, setToast] = useState(null);
   const notifRef = useRef(null);
+  const prevCountRef = useRef(0);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Close sidebar on navigate (mobile)
   useEffect(() => { setSidebarOpen(false); }, [location]);
@@ -38,7 +41,24 @@ export default function Layout() {
       const [notifs, count] = await Promise.all([api.getNotifications(), api.getUnreadCount()]);
       setNotifications(notifs);
       setUnreadCount(count.count);
+
+      // Show toast if new unread notifications arrived
+      if (count.count > prevCountRef.current && notifs.length > 0) {
+        const newest = notifs[0]; // Assuming descending order
+        setToast(newest.message);
+        setTimeout(() => setToast(null), 5000); // Hide after 5 seconds
+      }
+      prevCountRef.current = count.count;
     } catch {}
+  }
+
+  async function handleNotificationClick(n) {
+    if (!n.isRead) {
+      await api.markRead(n.id);
+      loadNotifications();
+    }
+    setShowNotifs(false);
+    navigate('/transactions');
   }
 
   async function handleMarkAllRead() {
@@ -69,6 +89,15 @@ export default function Layout() {
 
   return (
     <div className="app-layout">
+      {/* Toast Notification */}
+      <div className={`toast-notification ${toast ? 'visible' : ''}`}>
+        <div style={{ marginRight: 12, fontSize: '1.2rem' }}>🔔</div>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>New Transaction</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{toast}</div>
+        </div>
+      </div>
+
       {/* Mobile menu button */}
       <button className="mobile-menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}
         style={{ position: 'fixed', top: 16, left: 16, zIndex: 101 }}>
@@ -129,7 +158,8 @@ export default function Layout() {
                   </div>
                 ) : (
                   notifications.slice(0, 15).map(n => (
-                    <div key={n.id} className={`notif-item${!n.isRead ? ' unread' : ''}`}>
+                    <div key={n.id} className={`notif-item${!n.isRead ? ' unread' : ''}`}
+                         onClick={() => handleNotificationClick(n)} style={{ cursor: 'pointer' }}>
                       <div className="notif-message">{n.message}</div>
                       <div className="notif-time">{timeAgo(n.createdAt)}</div>
                     </div>

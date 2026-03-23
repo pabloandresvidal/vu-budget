@@ -1377,3 +1377,30 @@ select.input {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.8); }
 }
+
+/* ===== TOAST NOTIFICATION ===== */
+.toast-notification {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  width: 300px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  z-index: 9999;
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform var(--transition-spring), opacity var(--transition-base);
+}
+.toast-notification.visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+[data-theme="light"] .toast-notification {
+  background: #ffffff;
+}

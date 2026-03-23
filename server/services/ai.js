@@ -57,8 +57,8 @@ Return ONLY this JSON (no markdown, no explanation):
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
 
-    // Strip any accidental markdown fences
-    const cleaned = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    // Strip any accidental markdown fences or prefixes
+    const cleaned = text.replace(/^```.*?\n/, '').replace(/\n?```$/, '').trim();
     const parsed = JSON.parse(cleaned);
 
     console.log('Gemini result:', JSON.stringify(parsed));
@@ -90,11 +90,15 @@ function fallbackParse(smsText) {
     amount = parseFloat(amountMatch[1].replace(/,/g, '')) || 0;
   }
 
-  // Match vendor after "at", "from", "@", or before "was"
-  const vendorMatch = smsText.match(
-    /(?:at|from|@|spent at)\s+([A-Za-z0-9][A-Za-z0-9\s&'.\-]+?)(?:\s*[.,]|\s+(?:on|for|was|of|$))/i
-  );
-  const vendor = vendorMatch ? vendorMatch[1].trim() : 'Unknown Vendor';
+  // Match vendor more aggressively
+  const vendorMatch = smsText.match(/(?:at|from|@|spent at|to)\s+([A-Za-z0-9][A-Za-z0-9\s&'.\-*]+?)(?:\s*[.,]|\s+(?:on|for|was|of|$))/i);
+  let vendor = vendorMatch ? vendorMatch[1].trim() : '';
+
+  // Generic fallback if we still can't find a vendor
+  if (!vendor || vendor.length < 2) {
+    const capsMatch = smsText.match(/([A-Z][A-Z0-9\s&'.\-*]{2,})/);
+    vendor = capsMatch ? capsMatch[1].trim() : 'Unknown Vendor';
+  }
 
   return {
     vendor,

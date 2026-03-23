@@ -87,7 +87,8 @@ const runMigration = (sql) => {
 
 runMigration(`ALTER TABLE users ADD COLUMN email TEXT`);
 runMigration(`ALTER TABLE users ADD COLUMN email_notifications INTEGER DEFAULT 1`);
-runMigration(`ALTER TABLE users ADD COLUMN partner_code TEXT UNIQUE`);
+runMigration(`ALTER TABLE users ADD COLUMN partner_code TEXT`);
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_partner_code ON users(partner_code)`); } catch (_) {}
 runMigration(`ALTER TABLE users ADD COLUMN linked_to INTEGER REFERENCES users(id) ON DELETE SET NULL`);
 runMigration(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 1`);
 runMigration(`ALTER TABLE users ADD COLUMN verify_token TEXT`);

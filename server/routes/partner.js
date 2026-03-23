@@ -16,14 +16,22 @@ function resolveOwnerId(userId) {
 router.get('/code', (req, res) => {
   let user = db.prepare('SELECT id, partner_code, linked_to, display_name FROM users WHERE id = ?').get(req.user.id);
 
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
   // If linked as a partner, return the primary user's code instead
   if (user.linked_to) {
     const primary = db.prepare('SELECT id, partner_code, display_name FROM users WHERE id = ?').get(user.linked_to);
-    return res.json({
-      code: primary.partner_code,
-      linkedTo: { id: primary.id, displayName: primary.display_name },
-      isLinked: true
-    });
+    if (!primary) {
+      // The linked primary user was deleted, clean up the broken link securely
+      db.prepare('UPDATE users SET linked_to = NULL WHERE id = ?').run(user.id);
+      user.linked_to = null;
+    } else {
+      return res.json({
+        code: primary.partner_code,
+        linkedTo: { id: primary.id, displayName: primary.display_name },
+        isLinked: true
+      });
+    }
   }
 
   // Generate a code if they don't have one

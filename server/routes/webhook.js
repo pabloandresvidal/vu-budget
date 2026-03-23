@@ -39,9 +39,14 @@ router.post('/:userId', async (req, res) => {
       }
     }
 
-    // Fallback: check default header or body
-    if (!smsText) {
-      smsText = req.headers['x-sms-body'] || req.body?.sms || req.body?.message || req.body?.text || '';
+    // Fallback: check default header, or extract aggressively from various body fields
+    if (!smsText && req.body) {
+      smsText = req.headers['x-sms-body'] || 
+                req.body?.sms || 
+                req.body?.message || 
+                req.body?.text || 
+                req.body?.body || 
+                (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
     }
 
     if (!smsText) {
