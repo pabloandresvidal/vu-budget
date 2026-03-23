@@ -1,19 +1,30 @@
 import webpush from 'web-push';
 import db from '../db.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const vapidPath = path.join(__dirname, '../vapid-keys.json');
 
 // Configure VAPID keys from environment or generate them on the fly
 let vapidPublic = process.env.VAPID_PUBLIC_KEY;
 let vapidPrivate = process.env.VAPID_PRIVATE_KEY;
 
 if (!vapidPublic || !vapidPrivate) {
-  console.log('[PUSH] No VAPID keys found in environment. Generating temporary keys for session...');
-  const keys = webpush.generateVAPIDKeys();
-  vapidPublic = keys.publicKey;
-  vapidPrivate = keys.privateKey;
-  console.log('--- GENERATED VAPID KEYS ---');
-  console.log('PUBLIC:', vapidPublic);
-  console.log('PRIVATE:', vapidPrivate);
-  console.log('----------------------------');
+  if (fs.existsSync(vapidPath)) {
+    const keys = JSON.parse(fs.readFileSync(vapidPath, 'utf8'));
+    vapidPublic = keys.publicKey;
+    vapidPrivate = keys.privateKey;
+    console.log('[PUSH] Loaded persistent VAPID keys from vapid-keys.json');
+  } else {
+    console.log('[PUSH] No VAPID keys found. Generating persistent keys...');
+    const keys = webpush.generateVAPIDKeys();
+    vapidPublic = keys.publicKey;
+    vapidPrivate = keys.privateKey;
+    fs.writeFileSync(vapidPath, JSON.stringify(keys, null, 2));
+    console.log('[PUSH] Saved new VAPID keys to vapid-keys.json');
+  }
 }
 
 webpush.setVapidDetails(
@@ -55,8 +66,8 @@ export async function sendPushNotification(userId, payload) {
     } catch (err) {
       console.error(`[PUSH] Failed delivery for endpoint ${sub.endpoint.substring(0, 30)}...`);
       console.error(`[PUSH] Error: ${err.message}`);
-      if (err.statusCode === 404 || err.statusCode === 410) {
-        console.log(`[PUSH] Device unsubscribed or token expired. Dropping from database.`);
+      if (err.statusCode === 404 || err.statusCode === 410 || err.statusCode === 400) {
+        console.log(`[PUSH] Device unsubscribed or token mismatched (${err.statusCode}). Dropping from database.`);
         deleteStmt.run(sub.endpoint);
       } else {
         console.error('[PUSH] Full Error Trace:', err);

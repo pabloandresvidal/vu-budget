@@ -99,13 +99,32 @@ export default function Dashboard() {
         let sub = await reg.pushManager.getSubscription();
         console.log('[PUSH SETUP] Existing subscription:', sub ? 'Found' : 'None');
         
+        const { publicKey } = await api.getVapidKey();
+        const serverKeyBuffer = urlBase64ToUint8Array(publicKey);
+
+        if (sub) {
+          // Compare browser's existing server key to backend's current key
+          const currentKey = new Uint8Array(sub.options.applicationServerKey);
+          let match = currentKey.length === serverKeyBuffer.length;
+          if (match) {
+            for (let i = 0; i < currentKey.length; i++) {
+              if (currentKey[i] !== serverKeyBuffer[i]) {
+                match = false; break;
+              }
+            }
+          }
+          if (!match) {
+            console.warn('[PUSH SETUP] VAPID key changed on backend! Unsubscribing broken token...');
+            await sub.unsubscribe();
+            sub = null;
+          }
+        }
+
         if (!sub) {
-          console.log('[PUSH SETUP] Fetching VAPID from server...');
-          const { publicKey } = await api.getVapidKey();
           console.log('[PUSH SETUP] Subscribing via PushManager...');
           sub = await reg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey)
+            applicationServerKey: serverKeyBuffer
           });
           console.log('[PUSH SETUP] Got subscription from browser. Sending to server...');
           await api.subscribePush(sub.toJSON());
