@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
@@ -6,6 +6,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import Landing from './pages/Landing';
+import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Budgets from './pages/Budgets';
 import Transactions from './pages/Transactions';
@@ -16,8 +18,12 @@ import InstallPWA from './components/InstallPWA';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="auth-page"><div className="skeleton" style={{ width: 200, height: 40 }} /></div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/landing" replace />;
+  if (!user.onboarding_completed && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
   return children;
 }
 
@@ -41,6 +47,8 @@ export default function App() {
             <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
             <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
             <Route path="/verify" element={<VerifyEmail />} />
+            <Route path="/landing" element={<PublicRoute><Landing /></PublicRoute>} />
+            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="budgets" element={<Budgets />} />

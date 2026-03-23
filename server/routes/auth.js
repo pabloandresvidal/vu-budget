@@ -56,7 +56,13 @@ router.post('/register', async (req, res) => {
       );
       return res.status(201).json({
         token,
-        user: { id: result.lastInsertRowid, username: username.toLowerCase(), displayName: displayName || username }
+        user: { 
+          id: result.lastInsertRowid, 
+          username: username.toLowerCase(), 
+          displayName: displayName || username,
+          onboarding_completed: false,
+          subscription_tier: 'free'
+        }
       });
     }
 
@@ -108,6 +114,8 @@ router.post('/login', async (req, res) => {
         id: user.id, 
         username: user.username, 
         displayName: user.display_name,
+        onboarding_completed: Boolean(user.onboarding_completed),
+        subscription_tier: user.subscription_tier,
         notify_budget_updates: Boolean(user.notify_budget_updates),
         notify_tx_updates: Boolean(user.notify_tx_updates),
         notify_weekly_summary: Boolean(user.notify_weekly_summary),
@@ -161,11 +169,22 @@ router.get('/me', authMiddleware, (req, res) => {
     username: user.username, 
     displayName: user.display_name, 
     createdAt: user.created_at,
+    onboarding_completed: Boolean(user.onboarding_completed),
+    subscription_tier: user.subscription_tier,
     notify_budget_updates: Boolean(user.notify_budget_updates),
     notify_tx_updates: Boolean(user.notify_tx_updates),
     notify_weekly_summary: Boolean(user.notify_weekly_summary),
     notify_high_spending: Boolean(user.notify_high_spending)
   });
+});
+
+// POST /api/auth/complete-onboarding
+router.post('/complete-onboarding', authMiddleware, (req, res) => {
+  const { tier } = req.body;
+  if (tier !== 'free') return res.status(400).json({ error: 'Only free tier is currently supported' });
+
+  db.prepare('UPDATE users SET onboarding_completed = 1, subscription_tier = ? WHERE id = ?').run(tier, req.user.id);
+  res.json({ success: true, onboarding_completed: true, subscription_tier: tier });
 });
 
 // POST /api/auth/forgot-password

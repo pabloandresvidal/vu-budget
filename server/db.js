@@ -120,6 +120,10 @@ runMigration(`ALTER TABLE users ADD COLUMN notify_high_spending INTEGER DEFAULT 
 runMigration(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
 runMigration(`ALTER TABLE users ADD COLUMN reset_expires DATETIME`);
 
+// App Onboarding & Monetization
+runMigration(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0`);
+runMigration(`ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free'`);
+
 // Budget automation and UI features
 runMigration(`ALTER TABLE budgets ADD COLUMN auto_reset INTEGER DEFAULT 0`);
 runMigration(`ALTER TABLE budgets ADD COLUMN carry_over INTEGER DEFAULT 0`);

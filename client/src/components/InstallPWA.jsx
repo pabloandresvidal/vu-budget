@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export default function InstallPWA() {
+  const location = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstall, setShowInstall] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -60,6 +62,7 @@ export default function InstallPWA() {
     localStorage.setItem('vu_pwa_dismissed', 'true');
   };
 
+  if (location.pathname === '/landing') return null;
   if (!showInstall) return null;
 
   return (
