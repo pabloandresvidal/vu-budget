@@ -23,6 +23,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import notificationRoutes from './routes/notifications.js';
 import partnerRoutes from './routes/partner.js';
 import settingsRoutes from './routes/settings.js';
+import pushRoutes from './routes/push.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -71,6 +72,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/partner', partnerRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/push', pushRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

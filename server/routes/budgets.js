@@ -25,8 +25,10 @@ router.get('/', (req, res) => {
       title: b.title,
       description: b.description,
       totalAmount: b.total_amount,
-      spentAmount: b.spent_amount,
       remaining: b.total_amount - b.spent_amount,
+      autoReset: !!b.auto_reset,
+      carryOver: !!b.carry_over,
+      lastResetAt: b.last_reset_at,
       createdAt: b.created_at
     })));
   } catch (err) {
@@ -38,15 +40,15 @@ router.get('/', (req, res) => {
 // Create budget
 router.post('/', (req, res) => {
   try {
-    const { title, description, totalAmount } = req.body;
+    const { title, description, totalAmount, autoReset, carryOver } = req.body;
     if (!title || totalAmount == null) {
       return res.status(400).json({ error: 'Title and totalAmount are required' });
     }
 
     const ownerId = resolveOwnerId(req.user.id);
     const result = db.prepare(
-      'INSERT INTO budgets (user_id, title, description, total_amount) VALUES (?, ?, ?, ?)'
-    ).run(ownerId, title, description || '', totalAmount);
+      'INSERT INTO budgets (user_id, title, description, total_amount, auto_reset, carry_over) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(ownerId, title, description || '', totalAmount, autoReset ? 1 : 0, carryOver ? 1 : 0);
 
     res.status(201).json({
       id: result.lastInsertRowid,
@@ -54,7 +56,9 @@ router.post('/', (req, res) => {
       description: description || '',
       totalAmount,
       spentAmount: 0,
-      remaining: totalAmount
+      remaining: totalAmount,
+      autoReset: !!autoReset,
+      carryOver: !!carryOver
     });
   } catch (err) {
     console.error('Create budget error:', err);
@@ -65,17 +69,19 @@ router.post('/', (req, res) => {
 // Update budget
 router.put('/:id', (req, res) => {
   try {
-    const { title, description, totalAmount } = req.body;
+    const { title, description, totalAmount, autoReset, carryOver } = req.body;
     const ownerId = resolveOwnerId(req.user.id);
     const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, ownerId);
     if (!budget) return res.status(404).json({ error: 'Budget not found' });
 
     db.prepare(
-      'UPDATE budgets SET title = ?, description = ?, total_amount = ? WHERE id = ? AND user_id = ?'
+      'UPDATE budgets SET title = ?, description = ?, total_amount = ?, auto_reset = ?, carry_over = ? WHERE id = ? AND user_id = ?'
     ).run(
       title ?? budget.title,
       description ?? budget.description,
       totalAmount ?? budget.total_amount,
+      autoReset !== undefined ? (autoReset ? 1 : 0) : budget.auto_reset,
+      carryOver !== undefined ? (carryOver ? 1 : 0) : budget.carry_over,
       req.params.id,
       ownerId
     );
@@ -92,7 +98,9 @@ router.put('/:id', (req, res) => {
       description: updated.description,
       totalAmount: updated.total_amount,
       spentAmount: updated.spent_amount,
-      remaining: updated.total_amount - updated.spent_amount
+      remaining: updated.total_amount - updated.spent_amount,
+      autoReset: !!updated.auto_reset,
+      carryOver: !!updated.carry_over,
     });
   } catch (err) {
     console.error('Update budget error:', err);

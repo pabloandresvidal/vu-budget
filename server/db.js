@@ -78,6 +78,15 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
   );
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 // Run migrations for existing databases (add new columns if they don't exist)
@@ -92,5 +101,10 @@ try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_partner_code ON users(partn
 runMigration(`ALTER TABLE users ADD COLUMN linked_to INTEGER REFERENCES users(id) ON DELETE SET NULL`);
 runMigration(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 1`);
 runMigration(`ALTER TABLE users ADD COLUMN verify_token TEXT`);
+
+// Budget automation and UI features
+runMigration(`ALTER TABLE budgets ADD COLUMN auto_reset INTEGER DEFAULT 0`);
+runMigration(`ALTER TABLE budgets ADD COLUMN carry_over INTEGER DEFAULT 0`);
+runMigration(`ALTER TABLE budgets ADD COLUMN last_reset_at TEXT`);
 
 export default db;

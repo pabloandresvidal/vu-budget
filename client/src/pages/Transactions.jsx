@@ -14,6 +14,7 @@ export default function Transactions() {
   const [editForm, setEditForm] = useState({ budgetId: '', percentage: '100', vendor: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [filterBudget, setFilterBudget] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadData();
@@ -74,6 +75,16 @@ export default function Transactions() {
 
   const pendingCount = transactions.filter(t => t.needsReview).length;
 
+  const filteredTransactions = transactions.filter(t => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const vendorMatch = (t.vendor || '').toLowerCase().includes(q);
+    const descMatch = (t.description || '').toLowerCase().includes(q);
+    const amountMatch = String(t.amount || '').includes(q);
+    const smsMatch = (t.rawSms || '').toLowerCase().includes(q);
+    return vendorMatch || descMatch || amountMatch || smsMatch;
+  });
+
   return (
     <div>
       <div className="page-header">
@@ -94,15 +105,23 @@ export default function Transactions() {
       </div>
 
       {/* Filters */}
-      {tab === 'all' && (
-        <div className="filters-row">
+      <div className="filters-row" style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <input 
+          className="input" 
+          type="text" 
+          placeholder="Search vendor, description..." 
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{ flex: 1, minWidth: '200px' }}
+        />
+        {tab === 'all' && (
           <select className="input" value={filterBudget} onChange={e => setFilterBudget(e.target.value)}
-            style={{ minWidth: 180 }}>
+            style={{ width: 180 }}>
             <option value="">All budgets</option>
             {budgets.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
           </select>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Table */}
       <div className="glass-card-static" style={{ overflow: 'auto' }}>
@@ -110,7 +129,7 @@ export default function Transactions() {
           <div style={{ padding: 24 }}>
             {[1,2,3,4,5].map(i => <div key={i} className="skeleton" style={{ height: 44, marginBottom: 4 }} />)}
           </div>
-        ) : transactions.length === 0 ? (
+        ) : filteredTransactions.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">📋</div>
             <div className="empty-state-text">
@@ -132,7 +151,7 @@ export default function Transactions() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map(tx => (
+              {filteredTransactions.map(tx => (
                 <tr key={tx.id}>
                   <td style={{ whiteSpace: 'nowrap', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                     {new Date(tx.createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}

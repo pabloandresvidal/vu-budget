@@ -11,6 +11,13 @@ function formatCurrency(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0);
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return new Uint8Array([...rawData].map((char) => char.charCodeAt(0)));
+}
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -58,8 +65,36 @@ export default function Dashboard() {
   useEffect(() => {
     loadData();
     const interval = setInterval(() => loadData(true), 15000);
+
+    // Setup push notifications
+    if ('serviceWorker' in navigator && 'PushManager' in window && Notification.permission !== 'denied') {
+      setupPush();
+    }
+
     return () => clearInterval(interval);
   }, [loadData]);
+
+  async function setupPush() {
+    try {
+      if (Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+      if (Notification.permission === 'granted') {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const { publicKey } = await api.getVapidKey();
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+          });
+          await api.subscribePush(sub.toJSON());
+        }
+      }
+    } catch (err) {
+      console.warn('Push setup failed:', err);
+    }
+  }
 
   if (loading) {
     return (
@@ -102,10 +137,25 @@ export default function Dashboard() {
           <div className="stat-value green">{formatCurrency(summary?.remaining)}</div>
           <div className="stat-change">Available to spend</div>
         </div>
-        <div className="glass-card stat-card orange">
-          <div className="stat-label">Pending Review</div>
+        <div className="glass-card stat-card orange"
+          onClick={() => window.location.href = '/transactions?tab=pending'}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer', transition: 'all 0.2s ease', border: '1px solid var(--color-warning)' }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(245, 158, 11, 0.2)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'none';
+            e.currentTarget.style.boxShadow = 'var(--glass-shadow)';
+          }}
+        >
+          <div className="stat-label" style={{ color: 'var(--color-warning)', fontWeight: 'bold' }}>⚠️ Pending Review</div>
           <div className="stat-value orange">{summary?.pendingReview || 0}</div>
-          <div className="stat-change">{summary?.totalTransactions || 0} total transactions</div>
+          <div className="stat-change" style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+            Click to review {summary?.pendingReview || 0} transactions ➡️
+          </div>
         </div>
       </div>
 

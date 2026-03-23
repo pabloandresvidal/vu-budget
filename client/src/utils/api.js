@@ -76,4 +76,8 @@ export const api = {
   getPartnerCode: () => request('/partner/code'),
   joinPartner: (code) => request('/partner/join', { method: 'POST', body: JSON.stringify({ code }) }),
   unlinkPartner: () => request('/partner/unlink', { method: 'DELETE' }),
+
+  // Push
+  getVapidKey: () => request('/push/vapid-key'),
+  subscribePush: (data) => request('/push/subscribe', { method: 'POST', body: JSON.stringify(data) }),
 };

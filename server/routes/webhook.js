@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { categorizeSMS } from '../services/ai.js';
 import { sendReviewNotification } from '../services/email.js';
+import { sendPushNotification } from '../services/push.js';
 
 const router = Router();
 
@@ -92,6 +93,13 @@ router.post('/:token', async (req, res) => {
       const primaryUser = db.prepare('SELECT id, email, email_notifications FROM users WHERE id = ?').get(ownerId);
       sendReviewNotification(primaryUser, { vendor: result.vendor, amount: result.amount }).catch(() => {});
     }
+
+    // Send push notification for ALL transactions (not just needs review)
+    sendPushNotification(ownerId, {
+      title: needsReview ? '💰 Transaction Needs Review' : '✅ Transaction Auto-Categorized',
+      body: `${result.vendor}: $${result.amount.toFixed(2)}${needsReview ? ' — Tap to categorize' : ` → ${budgets.find(b => b.id === result.budgetId)?.title || 'Budget'}`}`,
+      data: { url: '/transactions', transactionId: txResult.lastInsertRowid }
+    }).catch(() => {});
 
     res.status(201).json({
       transactionId: txResult.lastInsertRowid,

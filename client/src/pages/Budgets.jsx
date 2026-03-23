@@ -10,7 +10,7 @@ export default function Budgets() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ title: '', description: '', totalAmount: '' });
+  const [form, setForm] = useState({ title: '', description: '', totalAmount: '', autoReset: false, carryOver: false });
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(null);
 
@@ -26,13 +26,13 @@ export default function Budgets() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ title: '', description: '', totalAmount: '' });
+    setForm({ title: '', description: '', totalAmount: '', autoReset: false, carryOver: false });
     setShowModal(true);
   }
 
   function openEdit(b) {
     setEditing(b);
-    setForm({ title: b.title, description: b.description || '', totalAmount: String(b.totalAmount) });
+    setForm({ title: b.title, description: b.description || '', totalAmount: String(b.totalAmount), autoReset: !!b.autoReset, carryOver: !!b.carryOver });
     setShowModal(true);
     setMenuOpen(null);
   }
@@ -41,7 +41,7 @@ export default function Budgets() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { title: form.title, description: form.description, totalAmount: Number(form.totalAmount) };
+      const payload = { title: form.title, description: form.description, totalAmount: Number(form.totalAmount), autoReset: form.autoReset, carryOver: form.carryOver };
       if (editing) {
         await api.updateBudget(editing.id, payload);
       } else {
@@ -100,6 +100,10 @@ export default function Budgets() {
                   <div>
                     <div className="budget-title">{b.title}</div>
                     {b.description && <div className="budget-desc">{b.description}</div>}
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      {b.autoReset && <span className="badge badge-info" style={{fontSize: '0.65rem'}}>Auto-Resets</span>}
+                      {b.carryOver && <span className="badge badge-success" style={{fontSize: '0.65rem'}}>Carries Over</span>}
+                    </div>
                   </div>
                   <div className="actions-menu">
                     <button className="btn-ghost btn-icon" onClick={() => setMenuOpen(menuOpen === b.id ? null : b.id)}>⋮</button>
@@ -156,6 +160,16 @@ export default function Budgets() {
                   <input className="input" type="number" step="0.01" min="0" value={form.totalAmount}
                     onChange={e => setForm({...form, totalAmount: e.target.value})}
                     placeholder="e.g. 500.00" required />
+                </div>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    <input type="checkbox" checked={form.autoReset} onChange={e => setForm({...form, autoReset: e.target.checked})} />
+                    Auto-reset monthly
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    <input type="checkbox" checked={form.carryOver} onChange={e => setForm({...form, carryOver: e.target.checked})} />
+                    Carry-over balance
+                  </label>
                 </div>
               </div>
               <div className="modal-footer">
