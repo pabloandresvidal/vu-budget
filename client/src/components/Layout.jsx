@@ -1,0 +1,149 @@
+import { useState, useEffect, useRef } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../utils/api';
+
+export default function Layout() {
+  const { user, logout } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notifRef = useRef(null);
+  const location = useLocation();
+
+  // Close sidebar on navigate (mobile)
+  useEffect(() => { setSidebarOpen(false); }, [location]);
+
+  // Fetch notifications
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifs(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  async function loadNotifications() {
+    try {
+      const [notifs, count] = await Promise.all([api.getNotifications(), api.getUnreadCount()]);
+      setNotifications(notifs);
+      setUnreadCount(count.count);
+    } catch {}
+  }
+
+  async function handleMarkAllRead() {
+    await api.markAllRead();
+    setUnreadCount(0);
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  }
+
+  function timeAgo(dateStr) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  const navLinks = [
+    { to: '/', icon: '📊', label: 'Dashboard', end: true },
+    { to: '/budgets', icon: '💰', label: 'Budgets' },
+    { to: '/transactions', icon: '📋', label: 'Transactions' },
+    { to: '/admin', icon: '⚙️', label: 'Webhooks' },
+  ];
+
+  const initials = user?.displayName?.slice(0, 2).toUpperCase() || user?.username?.slice(0, 2).toUpperCase() || 'VU';
+
+  return (
+    <div className="app-layout">
+      {/* Mobile menu button */}
+      <button className="mobile-menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}
+        style={{ position: 'fixed', top: 16, left: 16, zIndex: 101 }}>
+        {sidebarOpen ? '✕' : '☰'}
+      </button>
+
+      {/* Sidebar */}
+      <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-icon">V</div>
+          <span className="sidebar-logo-text">VU Budget</span>
+        </div>
+
+        <nav className="sidebar-nav">
+          {navLinks.map(link => (
+            <NavLink key={link.to} to={link.to} end={link.end}
+              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <span className="sidebar-link-icon">{link.icon}</span>
+              {link.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="sidebar-user">
+          <div className="sidebar-avatar">{initials}</div>
+          <div className="sidebar-user-info">
+            <div className="sidebar-user-name">{user?.displayName || user?.username}</div>
+            <div className="sidebar-user-role">Personal Account</div>
+          </div>
+          <button className="btn-ghost btn-icon" onClick={logout} title="Sign out">🚪</button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main className="main-content">
+        {/* Top bar with notification */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <div ref={notifRef} style={{ position: 'relative' }}>
+            <button className="notif-bell" onClick={() => setShowNotifs(!showNotifs)}>
+              🔔
+              {unreadCount > 0 && <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            </button>
+
+            {showNotifs && (
+              <div className="notif-dropdown">
+                <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Notifications</span>
+                  {unreadCount > 0 && (
+                    <button className="btn-ghost btn-sm" onClick={handleMarkAllRead}>Mark all read</button>
+                  )}
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                    No notifications yet
+                  </div>
+                ) : (
+                  notifications.slice(0, 15).map(n => (
+                    <div key={n.id} className={`notif-item${!n.isRead ? ' unread' : ''}`}>
+                      <div className="notif-message">{n.message}</div>
+                      <div className="notif-time">{timeAgo(n.createdAt)}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="page-enter">
+          <Outlet />
+        </div>
+      </main>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99 }}
+          onClick={() => setSidebarOpen(false)} />
+      )}
+    </div>
+  );
+}
