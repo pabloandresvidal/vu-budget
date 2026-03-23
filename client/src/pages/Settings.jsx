@@ -61,6 +61,11 @@ export default function Settings() {
   async function joinPartner(e) {
     e.preventDefault();
     if (!joinCode.trim()) return;
+    
+    // Explicit warning before overwriting context
+    const confirmMessage = "⚠️ WARNING: Linking to a partner will ERASE this account's current budgets and transactions. You will ONLY see your partner's shared data.\n\nAre you sure you want to proceed?";
+    if (!window.confirm(confirmMessage)) return;
+
     try {
       const res = await api.joinPartner(joinCode.trim());
       showMsg('success', `🎉 Linked to ${res.linkedTo?.displayName}! You now share the same budgets.`);

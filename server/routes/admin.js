@@ -16,7 +16,7 @@ router.get('/', (req, res) => {
       headerName: c.header_name,
       secretToken: c.secret_token,
       isActive: !!c.is_active,
-      webhookUrl: `/api/webhook/${req.user.id}`,
+      webhookUrl: `/api/webhook/${c.secret_token}`,
       createdAt: c.created_at
     })));
   } catch (err) {
@@ -42,7 +42,7 @@ router.post('/', (req, res) => {
       headerName: headerName || 'X-SMS-Body',
       secretToken,
       isActive: true,
-      webhookUrl: `/api/webhook/${req.user.id}`
+      webhookUrl: `/api/webhook/${secretToken}`
     });
   } catch (err) {
     console.error('Create webhook error:', err);
@@ -73,7 +73,7 @@ router.put('/:id', (req, res) => {
       headerName: updated.header_name,
       secretToken: updated.secret_token,
       isActive: !!updated.is_active,
-      webhookUrl: `/api/webhook/${req.user.id}`
+      webhookUrl: `/api/webhook/${updated.secret_token}`
     });
   } catch (err) {
     console.error('Update webhook error:', err);

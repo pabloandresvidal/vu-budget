@@ -21,8 +21,21 @@ function getTransporter() {
  * Send an email notification when a transaction needs manual review.
  */
 export async function sendReviewNotification(user, transaction) {
+  console.log(`[EMAIL DEBUG] Checking review notification for User ${user?.id}...`);
+  if (!user || !user.email) {
+    console.log(`[EMAIL DEBUG] Skipping: User has no email set.`);
+    return;
+  }
+  if (!user.email_notifications) {
+    console.log(`[EMAIL DEBUG] Skipping: User disabled email notifications.`);
+    return;
+  }
+  
   const mailer = getTransporter();
-  if (!mailer || !user.email || !user.email_notifications) return;
+  if (!mailer) {
+    console.log(`[EMAIL DEBUG] Skipping: SMTP not configured.`);
+    return;
+  }
 
   const subject = `💰 Action needed: Transaction from ${transaction.vendor}`;
   const amount = transaction.amount ? `$${Number(transaction.amount).toFixed(2)}` : 'Unknown amount';
@@ -58,15 +71,16 @@ export async function sendReviewNotification(user, transaction) {
   `;
 
   try {
+    console.log(`[EMAIL DEBUG] Attempting to send to ${user.email} via ${process.env.SMTP_HOST}...`);
     await mailer.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: user.email,
       subject,
       html
     });
-    console.log(`📧 Review email sent to ${user.email}`);
+    console.log(`[EMAIL DEBUG] ✅ Review email successfully sent to ${user.email}`);
   } catch (err) {
-    console.error('Email send error:', err.message);
+    console.error('[EMAIL ERROR] Failed to send email:', err);
   }
 }
 

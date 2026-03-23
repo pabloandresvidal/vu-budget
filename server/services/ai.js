@@ -24,29 +24,33 @@ export async function categorizeSMS(smsText, budgets) {
     ? budgets.map(b => `ID: ${b.id} — "${b.title}" (${b.description || 'no description'})`).join('\n')
     : 'No budgets configured yet.';
 
-  const prompt = `You are a financial transaction categorizer for a budgeting app. Analyze this bank SMS notification and extract the transaction details.
+  const prompt = `You are a strict financial transaction categorizer. Analyze this bank SMS notification.
 
 SMS: "${smsText}"
 
 Available budgets:
 ${budgetList}
 
-Instructions:
-- Extract the vendor name exactly (e.g. "Costco", "McDonald's", "Amazon", "Uber")
-- Make logical deductions for vendors. Example: "Costco", "Loblaws", "Walmart", "Metro" = Groceries/Food. "Esso", "Shell" = Gas/Transport.
-- Extract the transaction amount as a positive number (look for patterns like "17.64", "$17.64", "CAD 17.64")
-- Match the vendor to the most appropriate budget based on the vendor name and budget descriptions.
-- Set confidence to 0.8+ when the match is clear or reasonably deducible (e.g., matching Costco to a Groceries budget).
-- Only set confidence below 0.5 when you have absolutely no idea or no budgets match.
-- If no budgets exist, set budgetId to null and confidence to 0.
+CRITICAL RULES:
+1. Extract the exactly correct vendor name. Ignore the bank name (e.g., "Rogers Bank", "Chase"). Find the merchant where the money was spent. 
+   Example: "Rogers Bank: $17.51 spent at Costco" -> vendor is "Costco".
+   Example: "Purchase of $4.00 at Starbucks" -> vendor is "Starbucks".
+2. Extract the transaction amount as a positive number.
+3. Match the vendor to the best budget based on the vendor name and budget descriptions.
+4. Confidence scoring:
+   - 0.8 to 1.0: Perfect semantic match (e.g., Costco/Walmart -> Groceries)
+   - 0.5 to 0.79: Reasonable guess
+   - 0.0 to 0.49: Unsure, or no budget matches. Use this if you cannot decipher the vendor securely.
+5. If no budgets exist, set budgetId to null and confidence to 0.
 
-Return ONLY this JSON (no markdown, no explanation):
+OUTPUT FORMAT:
+You must output ONLY valid JSON. Absolutely no markdown blocks, no \`\`\`json, no explanations. 
 {
-  "vendor": "string",
-  "amount": number,
-  "budgetId": number or null,
-  "confidence": number,
-  "description": "string"
+  "vendor": "Costco",
+  "amount": 17.51,
+  "budgetId": 12,
+  "confidence": 0.9,
+  "description": "Rogers Bank: $17.51 spent at Costco"
 }`;
 
   try {

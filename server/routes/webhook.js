@@ -5,38 +5,32 @@ import { sendReviewNotification } from '../services/email.js';
 
 const router = Router();
 
-// POST /api/webhook/:userId
-// Receives SMS from bank forwarding service
-router.post('/:userId', async (req, res) => {
+// POST /api/webhook/:token
+// Receives SMS from bank forwarding service using the unique secret token
+router.post('/:token', async (req, res) => {
   try {
-    const userId = Number(req.params.userId);
+    const token = req.params.token;
+    
+    // Find the active webhook config matching this exact token
+    const config = db.prepare('SELECT * FROM webhook_configs WHERE secret_token = ? AND is_active = 1').get(token);
+    if (!config) {
+      return res.status(404).json({ error: 'Webhook endpoint not found or inactive' });
+    }
+
+    const userId = config.user_id;
     const user = db.prepare('SELECT id, email, email_notifications, linked_to FROM users WHERE id = ?').get(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+    
     // Use primary user's data if this is a linked (partner) account
     const ownerId = user.linked_to || user.id;
 
-    // Get active webhook configs for this user (or their primary account)
-    const configs = db.prepare(
-      'SELECT * FROM webhook_configs WHERE user_id = ? AND is_active = 1'
-    ).all(ownerId);
-
-    // Try to extract SMS from configured headers, fallback to X-SMS-Body, then body
+    // Try to extract SMS from configured header, fallback to general body text
     let smsText = '';
-    for (const config of configs) {
-      const headerVal = req.headers[config.header_name.toLowerCase()];
-      if (headerVal) {
-        // Verify secret token if configured
-        if (config.secret_token) {
-          const providedToken = req.headers['x-webhook-secret'] || req.headers['authorization'];
-          if (providedToken !== config.secret_token && providedToken !== `Bearer ${config.secret_token}`) {
-            continue; // Skip this config, token doesn't match
-          }
-        }
-        smsText = headerVal;
-        break;
-      }
+    const headerVal = req.headers[config.header_name.toLowerCase()];
+    if (headerVal) {
+      smsText = headerVal;
     }
 
     // Fallback: check default header, or extract aggressively from various body fields

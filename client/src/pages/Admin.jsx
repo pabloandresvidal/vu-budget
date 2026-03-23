@@ -148,17 +148,6 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Secret Token */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Secret Token</div>
-                <div className="webhook-url">
-                  <code>{wh.secretToken}</code>
-                  <button className="btn-ghost btn-sm" onClick={() => copyToClipboard(wh.secretToken, `token-${wh.id}`)}>
-                    {copied === `token-${wh.id}` ? '✓' : '📋'}
-                  </button>
-                </div>
-              </div>
-
               {/* Actions */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn btn-secondary btn-sm" onClick={() => openEdit(wh)}>✏️ Edit</button>
