@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area,
@@ -35,9 +35,10 @@ export default function Dashboard() {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadData(); }, []);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
-  async function loadData() {
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [s, c, t, v] = await Promise.all([
         api.getDashboardSummary(),
@@ -45,16 +46,20 @@ export default function Dashboard() {
         api.getDashboardTrend(30),
         api.getTopVendors(8),
       ]);
-      setSummary(s);
-      setCategories(c);
-      setTrend(t);
-      setVendors(v);
+      setSummary(s); setCategories(c); setTrend(t); setVendors(v);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(() => loadData(true), 15000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -77,6 +82,7 @@ export default function Dashboard() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle">Overview of your spending and budgets</p>
         </div>
+        <span className="last-updated">Live — {lastUpdated.toLocaleTimeString()}</span>
       </div>
 
       {/* Summary Stats */}

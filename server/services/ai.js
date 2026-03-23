@@ -11,77 +11,89 @@ function getClient() {
 
 /**
  * Parse an SMS message and categorize the transaction using Gemini AI.
- * @param {string} smsText - Raw SMS text from the bank
- * @param {Array} budgets - Array of {id, title, description} for the user's budgets
- * @returns {{ vendor, amount, budgetId, confidence, description }}
  */
 export async function categorizeSMS(smsText, budgets) {
   const client = getClient();
 
-  // If no Gemini key configured, fall back to regex parse
   if (!client) {
+    console.warn('No GEMINI_API_KEY configured — using regex fallback');
     return fallbackParse(smsText);
   }
 
-  const budgetList = budgets
-    .map(b => `ID: ${b.id} — "${b.title}" (${b.description || 'no description'})`)
-    .join('\n');
+  const budgetList = budgets.length > 0
+    ? budgets.map(b => `ID: ${b.id} — "${b.title}" (${b.description || 'no description'})`).join('\n')
+    : 'No budgets configured yet.';
 
-  const prompt = `You are a financial transaction categorizer. Given a bank SMS notification, extract the transaction details and categorize it into one of the user's budgets.
+  const prompt = `You are a financial transaction categorizer for a budgeting app. Analyze this bank SMS notification and extract the transaction details.
 
-Return ONLY a valid JSON object with these fields:
-- vendor: string (the merchant/vendor name, cleaned up and human-readable)
-- amount: number (the transaction amount, always positive)
-- budgetId: number or null (the ID of the matching budget, or null if unsure)
-- confidence: number (0-1, your confidence in the categorization)
-- description: string (a short human-readable description of the transaction)
+SMS: "${smsText}"
 
 Available budgets:
 ${budgetList}
 
-Rules:
-- If no budgets match well, set budgetId to null and confidence to 0
-- Only set confidence above 0.7 if you are very sure about the categorization
-- Extract the exact dollar amount from the SMS
-- Return ONLY the JSON object, no markdown fences, no explanation
+Instructions:
+- Extract the vendor/merchant name (e.g. "Costco", "McDonald's", "Amazon")
+- Extract the transaction amount as a positive number (look for patterns like "17.64", "$17.64", "CAD 17.64")
+- Match the vendor to the most appropriate budget based on the vendor name and budget descriptions
+- Set confidence 0.8+ when the match is very clear (e.g. grocery store → Groceries budget)
+- Set confidence 0.5-0.79 when it's a reasonable guess
+- Set confidence below 0.5 when you're unsure or no budget matches
+- If no budgets exist or none match at all, set budgetId to null and confidence to 0
 
-SMS to categorize:
-${smsText}`;
+Return ONLY this JSON (no markdown, no explanation):
+{
+  "vendor": "string",
+  "amount": number,
+  "budgetId": number or null,
+  "confidence": number,
+  "description": "string"
+}`;
 
   try {
-    const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = client.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+    });
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
 
-    // Strip markdown code fences if Gemini adds them
-    const cleaned = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    // Strip any accidental markdown fences
+    const cleaned = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
     const parsed = JSON.parse(cleaned);
+
+    console.log('Gemini result:', JSON.stringify(parsed));
 
     return {
       vendor: parsed.vendor || 'Unknown',
       amount: Math.abs(Number(parsed.amount)) || 0,
       budgetId: parsed.budgetId || null,
       confidence: Number(parsed.confidence) || 0,
-      description: parsed.description || ''
+      description: parsed.description || `Transaction at ${parsed.vendor || 'Unknown'}`
     };
   } catch (err) {
-    console.error('Gemini AI categorization error:', err.message);
+    console.error('Gemini AI error:', err.message);
     return fallbackParse(smsText);
   }
 }
 
 /**
- * Basic regex-based fallback parser when AI is unavailable
+ * Improved regex-based fallback parser.
+ * Handles: "$17.64", "17.64", "CAD 17.64", "USD17.64"
  */
 function fallbackParse(smsText) {
-  const amountMatch = smsText.match(/\$\s?([\d,]+\.?\d*)|(?:USD|usd)\s?([\d,]+\.?\d*)|([\d,]+\.?\d*)\s?(?:USD|usd)/);
+  // Match amounts with or without currency symbols/codes
+  const amountMatch = smsText.match(
+    /(?:\$|CAD|USD|MXN)?\s*([\d,]+\.\d{2})(?:\s*(?:CAD|USD|MXN))?/i
+  );
   let amount = 0;
   if (amountMatch) {
-    const raw = (amountMatch[1] || amountMatch[2] || amountMatch[3] || '0').replace(/,/g, '');
-    amount = parseFloat(raw) || 0;
+    amount = parseFloat(amountMatch[1].replace(/,/g, '')) || 0;
   }
 
-  const vendorMatch = smsText.match(/(?:at|from|to|@)\s+([A-Za-z0-9\s&'.]+?)(?:\s+(?:on|for|was|of|\.|$))/i);
+  // Match vendor after "at", "from", "@", or before "was"
+  const vendorMatch = smsText.match(
+    /(?:at|from|@|spent at)\s+([A-Za-z0-9][A-Za-z0-9\s&'.\-]+?)(?:\s*[.,]|\s+(?:on|for|was|of|$))/i
+  );
   const vendor = vendorMatch ? vendorMatch[1].trim() : 'Unknown Vendor';
 
   return {

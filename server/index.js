@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -25,15 +27,42 @@ import settingsRoutes from './routes/settings.js';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled so Vite dev proxy works; enable in prod if needed
+  crossOriginEmbedderPolicy: false
+}));
+
+// CORS
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? [process.env.APP_URL, 'https://budget.vidalpablo.com'].filter(Boolean)
+    : true,
+  credentials: true
+}));
+
+app.use(express.json({ limit: '10kb' })); // Prevent huge payloads
+
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  message: { error: 'Too many attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30,
+  message: { error: 'Too many webhook requests.' }
+});
 
 // API Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/transactions', transactionRoutes);
-app.use('/api/webhook', webhookRoutes);
+app.use('/api/webhook', webhookLimiter, webhookRoutes);
 app.use('/api/admin/webhooks', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);

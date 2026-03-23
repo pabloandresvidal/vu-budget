@@ -93,3 +93,45 @@ export async function sendWelcomeEmail(user) {
     console.error('Welcome email error:', err.message);
   }
 }
+
+/**
+ * Send email verification link on registration.
+ */
+export async function sendVerificationEmail(user, verifyToken) {
+  const mailer = getTransporter();
+  if (!mailer || !user.email) return;
+
+  const appUrl = process.env.APP_URL || 'https://budget.vidalpablo.com';
+  const verifyUrl = `${appUrl}/verify?token=${verifyToken}`;
+
+  try {
+    await mailer.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: user.email,
+      subject: '✅ Verify your VU Budget account',
+      html: `
+        <div style="font-family: Inter, Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #0c0c1d; color: #f0f0f0; border-radius: 12px; padding: 32px; border: 1px solid rgba(255,255,255,0.1);">
+          <div style="background: linear-gradient(135deg, #7c3aed, #06b6d4); border-radius: 8px; padding: 4px 12px; display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: white; margin-bottom: 24px;">
+            VU Budget
+          </div>
+          <h2 style="margin: 0 0 8px; font-size: 20px; color: white;">Verify your email</h2>
+          <p style="color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 24px;">
+            Hi ${user.display_name}, click the button below to activate your account.
+          </p>
+          <a href="${verifyUrl}"
+             style="background: linear-gradient(135deg, #7c3aed, #06b6d4); color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; display: inline-block; font-size: 15px;">
+            Verify My Account →
+          </a>
+          <p style="color: rgba(255,255,255,0.3); font-size: 12px; margin-top: 24px;">
+            If you didn't create an account, you can ignore this email.<br>
+            Link expires in 48 hours.
+          </p>
+        </div>
+      `
+    });
+    console.log(`📧 Verification email sent to ${user.email}`);
+  } catch (err) {
+    console.error('Verification email error:', err.message);
+  }
+}
+

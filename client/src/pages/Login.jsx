@@ -7,15 +7,20 @@ export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setNeedsVerification(false);
     setLoading(true);
     try {
       await login(username, password);
     } catch (err) {
+      if (err.message?.includes('verify')) {
+        setNeedsVerification(true);
+      }
       setError(err.message);
     } finally {
       setLoading(false);
@@ -32,7 +37,14 @@ export default function Login() {
         <h1 className="auth-title">Welcome back</h1>
         <p className="auth-subtitle">Sign in to your VU Budget account</p>
 
-        {error && <div className="auth-error">{error}</div>}
+        {needsVerification ? (
+          <div style={{ padding: '12px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, fontSize: '0.85rem', color: '#93c5fd', marginBottom: 8 }}>
+            📬 Check your inbox for a verification email. <br />
+            <Link to="/register" style={{ color: '#93c5fd', textDecoration: 'underline' }}>Re-register</Link> if you didn't receive it.
+          </div>
+        ) : (
+          error && <div className="auth-error">{error}</div>
+        )}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="input-group">

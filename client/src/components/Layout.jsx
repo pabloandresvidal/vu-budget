@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { api } from '../utils/api';
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -96,6 +98,9 @@ export default function Layout() {
             <div className="sidebar-user-name">{user?.displayName || user?.username}</div>
             <div className="sidebar-user-role">Personal Account</div>
           </div>
+          <button className="btn-ghost btn-icon" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
           <button className="btn-ghost btn-icon" onClick={logout} title="Sign out">🚪</button>
         </div>
       </aside>

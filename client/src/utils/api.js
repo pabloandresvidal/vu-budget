@@ -29,9 +29,10 @@ export const api = {
   // Auth
   login: (username, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
-  register: (username, password, displayName) =>
-    request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, displayName }) }),
+  register: (data) =>
+    request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   getMe: () => request('/auth/me'),
+  verifyEmail: (token) => request(`/auth/verify/${token}`),
 
   // Budgets
   getBudgets: () => request('/budgets'),
@@ -66,4 +67,13 @@ export const api = {
   getUnreadCount: () => request('/notifications/unread-count'),
   markRead: (id) => request(`/notifications/${id}/read`, { method: 'PUT' }),
   markAllRead: () => request('/notifications/read-all', { method: 'PUT' }),
+
+  // Settings & Profile
+  getProfile: () => request('/settings/profile'),
+  updateProfile: (data) => request('/settings/profile', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Partner
+  getPartnerCode: () => request('/partner/code'),
+  joinPartner: (code) => request('/partner/join', { method: 'POST', body: JSON.stringify({ code }) }),
+  unlinkPartner: () => request('/partner/unlink', { method: 'DELETE' }),
 };
