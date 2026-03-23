@@ -42,7 +42,7 @@ export default function Landing() {
           </div>
           
           <div style={{ marginTop: 60, width: '100%', maxWidth: 800 }}>
-             <img src="/icons/icon-512x512.png" alt="App interface demo" style={{ width: '100%', maxWidth: 240, opacity: 0.8, filter: 'drop-shadow(0 0 40px rgba(124, 58, 237, 0.3))' }} />
+             <img src="/app-demo.png" alt="App interface demo" style={{ width: '100%', maxWidth: 300, borderRadius: 24, border: '4px solid rgba(255,255,255,0.05)', filter: 'drop-shadow(0 0 60px rgba(124, 58, 237, 0.2))' }} />
           </div>
         </section>
 
