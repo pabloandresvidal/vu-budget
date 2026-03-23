@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
@@ -16,7 +16,7 @@ export default function Login() {
     setNeedsVerification(false);
     setLoading(true);
     try {
-      await login(username, password);
+      await login(email, password);
     } catch (err) {
       if (err.message?.includes('verify')) {
         setNeedsVerification(true);
@@ -48,12 +48,15 @@ export default function Login() {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="input-group">
-            <label htmlFor="username">Username</label>
-            <input id="username" className="input" type="text" placeholder="Enter your username"
-              value={username} onChange={e => setUsername(e.target.value)} required autoFocus />
+            <label htmlFor="email">Email Address</label>
+            <input id="email" className="input" type="email" placeholder="you@example.com"
+              value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
           </div>
           <div className="input-group">
-            <label htmlFor="password">Password</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <label htmlFor="password">Password</label>
+              <Link to="/forgot-password" style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Forgot Password?</Link>
+            </div>
             <input id="password" className="input" type="password" placeholder="Enter your password"
               value={password} onChange={e => setPassword(e.target.value)} required />
           </div>

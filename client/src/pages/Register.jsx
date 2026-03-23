@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -22,7 +21,7 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      const res = await register({ username, password, email });
+      const res = await register({ username: email, password, email });
       if (res.requiresVerification) {
         setSuccessMsg(res.message);
         // Clear form
@@ -47,7 +46,16 @@ export default function Register() {
         <h1 className="auth-title">Create Account</h1>
         <p className="auth-subtitle">Start managing your budget with AI</p>
 
-        {error && <div className="auth-error">{error}</div>}
+        {error && (
+          <div className="auth-error">
+            {error}
+            {error.toLowerCase().includes('already exists') && (
+              <div style={{ marginTop: 12 }}>
+                <Link to="/forgot-password" style={{ color: 'white', textDecoration: 'underline' }}>Recover your password instead?</Link>
+              </div>
+            )}
+          </div>
+        )}
         {successMsg && (
           <div style={{ padding: '16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, fontSize: '0.9rem', color: '#93c5fd', marginBottom: 24, textAlign: 'center' }}>
             {successMsg}
@@ -60,11 +68,6 @@ export default function Register() {
               <label htmlFor="reg-email">Email Address</label>
               <input id="reg-email" className="input" type="email" placeholder="you@example.com"
                 value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
-            </div>
-            <div className="input-group">
-              <label htmlFor="reg-username">Username</label>
-              <input id="reg-username" className="input" type="text" placeholder="Choose a username"
-                value={username} onChange={e => setUsername(e.target.value)} required minLength={3} />
             </div>
             <div className="input-group">
               <label htmlFor="reg-password">Password</label>

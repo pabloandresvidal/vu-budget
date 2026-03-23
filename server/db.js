@@ -116,6 +116,10 @@ runMigration(`ALTER TABLE users ADD COLUMN notify_tx_updates INTEGER DEFAULT 1`)
 runMigration(`ALTER TABLE users ADD COLUMN notify_weekly_summary INTEGER DEFAULT 1`);
 runMigration(`ALTER TABLE users ADD COLUMN notify_high_spending INTEGER DEFAULT 1`);
 
+// Password Recovery
+runMigration(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
+runMigration(`ALTER TABLE users ADD COLUMN reset_expires DATETIME`);
+
 // Budget automation and UI features
 runMigration(`ALTER TABLE budgets ADD COLUMN auto_reset INTEGER DEFAULT 0`);
 runMigration(`ALTER TABLE budgets ADD COLUMN carry_over INTEGER DEFAULT 0`);

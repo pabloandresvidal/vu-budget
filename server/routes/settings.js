@@ -80,4 +80,36 @@ router.get('/profile', (req, res) => {
   });
 });
 
+// DELETE /api/settings/account — Permanently delete the user account
+router.delete('/account', (req, res) => {
+  const user = db.prepare('SELECT id, linked_to FROM users WHERE id = ?').get(req.user.id);
+  
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Determine if user has a dependent partner (i.e. user is Primary)
+  const dependentPartner = db.prepare('SELECT id FROM users WHERE linked_to = ?').get(user.id);
+
+  try {
+    db.transaction(() => {
+      if (dependentPartner && !user.linked_to) {
+        // Transfer data ownership to the dependent partner so they don't lose the ledger
+        db.prepare('UPDATE budgets SET user_id = ? WHERE user_id = ?').run(dependentPartner.id, user.id);
+        db.prepare('UPDATE transactions SET user_id = ? WHERE user_id = ?').run(dependentPartner.id, user.id);
+        db.prepare('UPDATE ignored_patterns SET user_id = ? WHERE user_id = ?').run(dependentPartner.id, user.id);
+        db.prepare('UPDATE webhook_configs SET user_id = ? WHERE user_id = ?').run(dependentPartner.id, user.id);
+        
+        // Elevate the dependent partner to Primary status
+        db.prepare('UPDATE users SET linked_to = NULL WHERE id = ?').run(dependentPartner.id);
+      }
+      // Delete the account. Cascade drops remaining non-transferred entities.
+      db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+    })();
+    
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (err) {
+    console.error('Account deletion error:', err);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 export default router;

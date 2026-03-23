@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Settings() {
+  const { logout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [partner, setPartner] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -115,6 +117,27 @@ export default function Settings() {
       await fetchAll();
     } catch (e) {
       showMsg('error', 'Failed to unlink partner');
+    }
+  }
+
+  async function deleteAccount() {
+    const confirm1 = window.confirm("DANGER: Are you absolutely sure you want to delete your account? This action cannot be undone!");
+    if (!confirm1) return;
+    const confirm2 = window.confirm("If you are linked to a partner, your data will be safely transferred to them. Otherwise, all your financial records will be permanently erased.\n\nType 'DELETE' in the next prompt if you wish to proceed.");
+    if (!confirm2) return;
+    
+    const finalCheck = window.prompt('Type DELETE to confirm:');
+    if (finalCheck !== 'DELETE') {
+      return showMsg('error', 'Account deletion cancelled.');
+    }
+
+    setSaving(true);
+    try {
+      await api.deleteAccount();
+      logout();
+    } catch (e) {
+      showMsg('error', e.message || 'Failed to delete account');
+      setSaving(false);
     }
   }
 
@@ -272,6 +295,18 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      {/* Danger Zone */}
+      <div className="glass-card-static settings-section" style={{ padding: 24, marginBottom: 24, border: '1px solid rgba(239, 68, 68, 0.4)' }}>
+        <h2 className="settings-section-title" style={{ color: '#ef4444' }}>⚠️ Danger Zone</h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+          Permanently delete your account. If you are the Primary account owner linked to a partner, your budgets and transactions will be securely transferred to them so they don't lose the ledger. If you act alone, 100% of your data will be instantly erased.
+        </p>
+        <button className="btn btn-danger" onClick={deleteAccount} disabled={saving}>
+          {saving ? 'Deleting...' : '🗑️ Delete Account'}
+        </button>
+      </div>
+
     </div>
   );
 }

@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { sendWelcomeEmail, sendVerificationEmail } from '../services/email.js';
+import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js';
 
 const router = Router();
 
@@ -26,9 +26,9 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email address' });
     }
 
-    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username.toLowerCase());
+    const existing = db.prepare('SELECT id FROM users WHERE username = ? OR email = ?').get(username.toLowerCase(), email);
     if (existing) {
-      return res.status(409).json({ error: 'Username already taken' });
+      return res.status(409).json({ error: 'An account with this email/username already exists.', emailExists: true });
     }
 
     const hash = await bcrypt.hash(password, 12);
@@ -166,6 +166,46 @@ router.get('/me', authMiddleware, (req, res) => {
     notify_weekly_summary: Boolean(user.notify_weekly_summary),
     notify_high_spending: Boolean(user.notify_high_spending)
   });
+});
+
+// POST /api/auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ? OR username = ?').get(email.toLowerCase(), email.toLowerCase());
+  
+  if (!user) {
+    return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+  }
+
+  const token = uuidv4();
+  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  db.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?').run(token, expires, user.id);
+  
+  sendPasswordResetEmail(user, token).catch(() => {});
+
+  res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  
+  if (!token || !password) return res.status(400).json({ error: 'Invalid request' });
+  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  const user = db.prepare('SELECT id, reset_expires FROM users WHERE reset_token = ?').get(token);
+  
+  if (!user || new Date(user.reset_expires) < new Date()) {
+    return res.status(400).json({ error: 'Password reset link is invalid or has expired.' });
+  }
+
+  const hash = await bcrypt.hash(password, 12);
+  db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL WHERE id = ?').run(hash, user.id);
+
+  res.json({ success: true, message: 'Password has been successfully reset! You may now log in.' });
 });
 
 export default router;
