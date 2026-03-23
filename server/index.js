@@ -27,6 +27,9 @@ import settingsRoutes from './routes/settings.js';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+// Trust reverse proxy (Nginx) so rate-limiting uses the real client IP
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: false, // Disabled so Vite dev proxy works; enable in prod if needed
