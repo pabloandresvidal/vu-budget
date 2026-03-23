@@ -20,6 +20,10 @@ self.addEventListener('push', (event) => {
       data: data.data || {}
     };
 
+    if ('setAppBadge' in navigator) {
+      navigator.setAppBadge(1).catch(e => console.warn('Badge error', e));
+    }
+
     event.waitUntil(
       self.registration.showNotification(data.title || 'VU Budget', notificationOptions)
     );
@@ -30,6 +34,10 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  if ('clearAppBadge' in navigator) {
+    navigator.clearAppBadge().catch(e => console.warn('Badge clear error', e));
+  }
 
   const urlToOpen = event.notification.data.url || '/dashboard';
 

@@ -71,6 +71,11 @@ export default function Dashboard() {
       setPushPermission(Notification.permission);
     }
 
+    // Clear app icon badge when dashboard is opened
+    if ('clearAppBadge' in navigator) {
+      navigator.clearAppBadge().catch(e => console.warn('Badge clear error', e));
+    }
+
     // Setup push notifications silently if already granted
     if ('serviceWorker' in navigator && 'PushManager' in window && Notification.permission === 'granted') {
       setupPush();
@@ -80,24 +85,40 @@ export default function Dashboard() {
   }, [loadData]);
 
   async function setupPush() {
+    console.log('[PUSH SETUP] setupPush triggered. Current permission:', Notification.permission);
     try {
       if (Notification.permission === 'default') {
-        await Notification.requestPermission();
+        console.log('[PUSH SETUP] Requesting permission from user...');
+        const perm = await Notification.requestPermission();
+        console.log('[PUSH SETUP] User answered:', perm);
       }
       if (Notification.permission === 'granted') {
+        console.log('[PUSH SETUP] Permission is granted. Fetching SW registration...');
         const reg = await navigator.serviceWorker.ready;
+        console.log('[PUSH SETUP] SW is ready. Scope:', reg.scope);
         let sub = await reg.pushManager.getSubscription();
+        console.log('[PUSH SETUP] Existing subscription:', sub ? 'Found' : 'None');
+        
         if (!sub) {
+          console.log('[PUSH SETUP] Fetching VAPID from server...');
           const { publicKey } = await api.getVapidKey();
+          console.log('[PUSH SETUP] Subscribing via PushManager...');
           sub = await reg.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(publicKey)
           });
+          console.log('[PUSH SETUP] Got subscription from browser. Sending to server...');
           await api.subscribePush(sub.toJSON());
+          console.log('[PUSH SETUP] Success! Server securely stored subscription.');
+        } else {
+          await api.subscribePush(sub.toJSON());
+          console.log('[PUSH SETUP] Validated existing subscription with server.');
         }
+      } else {
+        console.warn('[PUSH SETUP] Permission strictly denied by user or device.');
       }
     } catch (err) {
-      console.warn('Push setup failed:', err);
+      console.error('[PUSH SETUP] Fatal error during setup:', err);
     }
   }
 
