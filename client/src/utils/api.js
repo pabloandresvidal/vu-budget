@@ -14,10 +14,13 @@ async function request(endpoint, options = {}) {
   });
 
   if (res.status === 401) {
-    localStorage.removeItem('vu_token');
-    localStorage.removeItem('vu_user');
-    window.location.href = '/login';
-    throw new Error('Unauthorized');
+    if (endpoint !== '/auth/login') {
+      localStorage.removeItem('vu_token');
+      localStorage.removeItem('vu_user');
+      window.location.href = '/login';
+    }
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.error || 'Unauthorized');
   }
 
   const data = await res.json();

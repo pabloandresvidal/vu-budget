@@ -25,7 +25,7 @@ export default function Register() {
       if (res.requiresVerification) {
         setSuccessMsg(res.message);
         // Clear form
-        setUsername(''); setEmail(''); setPassword(''); setConfirm('');
+        setEmail(''); setPassword(''); setConfirm('');
       } else {
         navigate('/'); // Logged in immediately
       }
