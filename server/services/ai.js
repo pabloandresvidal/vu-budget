@@ -1,42 +1,36 @@
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-let openai = null;
+let genAI = null;
 
 function getClient() {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  if (!genAI && process.env.GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   }
-  return openai;
+  return genAI;
 }
 
 /**
- * Parse an SMS message and categorize the transaction.
+ * Parse an SMS message and categorize the transaction using Gemini AI.
  * @param {string} smsText - Raw SMS text from the bank
  * @param {Array} budgets - Array of {id, title, description} for the user's budgets
- * @returns {{ vendor: string, amount: number, budgetId: number|null, confidence: number, description: string }}
+ * @returns {{ vendor, amount, budgetId, confidence, description }}
  */
 export async function categorizeSMS(smsText, budgets) {
   const client = getClient();
 
-  // If no OpenAI key configured, do a basic regex parse and leave uncategorized
+  // If no Gemini key configured, fall back to regex parse
   if (!client) {
     return fallbackParse(smsText);
   }
 
-  const budgetList = budgets.map(b => `ID: ${b.id} — "${b.title}" (${b.description || 'no description'})`).join('\n');
+  const budgetList = budgets
+    .map(b => `ID: ${b.id} — "${b.title}" (${b.description || 'no description'})`)
+    .join('\n');
 
-  try {
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.1,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: `You are a financial transaction categorizer. Given a bank SMS notification, extract the transaction details and categorize it into one of the user's budgets.
+  const prompt = `You are a financial transaction categorizer. Given a bank SMS notification, extract the transaction details and categorize it into one of the user's budgets.
 
-Return a JSON object with these fields:
-- vendor: string (the merchant/vendor name)
+Return ONLY a valid JSON object with these fields:
+- vendor: string (the merchant/vendor name, cleaned up and human-readable)
 - amount: number (the transaction amount, always positive)
 - budgetId: number or null (the ID of the matching budget, or null if unsure)
 - confidence: number (0-1, your confidence in the categorization)
@@ -49,25 +43,29 @@ Rules:
 - If no budgets match well, set budgetId to null and confidence to 0
 - Only set confidence above 0.7 if you are very sure about the categorization
 - Extract the exact dollar amount from the SMS
-- Clean up the vendor name to be human-readable`
-        },
-        {
-          role: 'user',
-          content: smsText
-        }
-      ]
-    });
+- Return ONLY the JSON object, no markdown fences, no explanation
 
-    const result = JSON.parse(response.choices[0].message.content);
+SMS to categorize:
+${smsText}`;
+
+  try {
+    const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+
+    // Strip markdown code fences if Gemini adds them
+    const cleaned = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    const parsed = JSON.parse(cleaned);
+
     return {
-      vendor: result.vendor || 'Unknown',
-      amount: Math.abs(Number(result.amount)) || 0,
-      budgetId: result.budgetId || null,
-      confidence: Number(result.confidence) || 0,
-      description: result.description || ''
+      vendor: parsed.vendor || 'Unknown',
+      amount: Math.abs(Number(parsed.amount)) || 0,
+      budgetId: parsed.budgetId || null,
+      confidence: Number(parsed.confidence) || 0,
+      description: parsed.description || ''
     };
   } catch (err) {
-    console.error('AI categorization error:', err);
+    console.error('Gemini AI categorization error:', err.message);
     return fallbackParse(smsText);
   }
 }
@@ -76,7 +74,6 @@ Rules:
  * Basic regex-based fallback parser when AI is unavailable
  */
 function fallbackParse(smsText) {
-  // Try to extract amount patterns like $45.50, 45.50, USD 45.50
   const amountMatch = smsText.match(/\$\s?([\d,]+\.?\d*)|(?:USD|usd)\s?([\d,]+\.?\d*)|([\d,]+\.?\d*)\s?(?:USD|usd)/);
   let amount = 0;
   if (amountMatch) {
@@ -84,7 +81,6 @@ function fallbackParse(smsText) {
     amount = parseFloat(raw) || 0;
   }
 
-  // Try to extract vendor — look for "at <vendor>" or "from <vendor>"
   const vendorMatch = smsText.match(/(?:at|from|to|@)\s+([A-Za-z0-9\s&'.]+?)(?:\s+(?:on|for|was|of|\.|$))/i);
   const vendor = vendorMatch ? vendorMatch[1].trim() : 'Unknown Vendor';
 

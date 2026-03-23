@@ -23,6 +23,10 @@ db.exec(`
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     display_name TEXT,
+    email TEXT,
+    email_notifications INTEGER DEFAULT 1,
+    partner_code TEXT UNIQUE,
+    linked_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -75,5 +79,15 @@ db.exec(`
     FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
   );
 `);
+
+// Run migrations for existing databases (add new columns if they don't exist)
+const runMigration = (sql) => {
+  try { db.exec(sql); } catch (_) { /* column already exists */ }
+};
+
+runMigration(`ALTER TABLE users ADD COLUMN email TEXT`);
+runMigration(`ALTER TABLE users ADD COLUMN email_notifications INTEGER DEFAULT 1`);
+runMigration(`ALTER TABLE users ADD COLUMN partner_code TEXT UNIQUE`);
+runMigration(`ALTER TABLE users ADD COLUMN linked_to INTEGER REFERENCES users(id) ON DELETE SET NULL`);
 
 export default db;

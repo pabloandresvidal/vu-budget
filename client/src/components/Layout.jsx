@@ -60,6 +60,7 @@ export default function Layout() {
     { to: '/budgets', icon: '💰', label: 'Budgets' },
     { to: '/transactions', icon: '📋', label: 'Transactions' },
     { to: '/admin', icon: '⚙️', label: 'Webhooks' },
+    { to: '/settings', icon: '👤', label: 'Settings' },
   ];
 
   const initials = user?.displayName?.slice(0, 2).toUpperCase() || user?.username?.slice(0, 2).toUpperCase() || 'VU';

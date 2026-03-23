@@ -2,6 +2,8 @@
 
 /* --- CSS Custom Properties --- */
 :root {
+  color-scheme: dark;
+
   /* Base palette */
   --bg-primary: #06060f;
   --bg-secondary: #0c0c1d;
@@ -302,6 +304,22 @@ input, select, textarea {
 
 .input::placeholder {
   color: var(--text-tertiary);
+}
+
+/* Fix Chrome autofill white/yellow background */
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px rgba(18, 18, 42, 0.95) inset;
+  box-shadow: 0 0 0 1000px rgba(18, 18, 42, 0.95) inset;
+  border-color: var(--glass-border);
+  caret-color: var(--text-primary);
+}
+
+select.input option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 select.input {
@@ -1201,3 +1219,63 @@ select.input {
   pointer-events: none;
   margin-bottom: 4px;
 }
+
+/* --- Settings Page --- */
+.settings-section {
+  margin-bottom: var(--space-lg);
+}
+
+.settings-section-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.settings-alert {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.settings-alert.success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+}
+.settings-alert.error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+.settings-code-display {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: var(--radius-md);
+  font-family: monospace;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #a78bfa;
+  min-width: 160px;
+  justify-content: center;
+}
+
+.settings-partner-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-sm);
+}
+.settings-partner-status.linked {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+

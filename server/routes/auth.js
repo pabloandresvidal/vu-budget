@@ -3,13 +3,14 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { sendWelcomeEmail } from '../services/email.js';
 
 const router = Router();
 
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, displayName } = req.body;
+    const { username, password, displayName, email } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
@@ -24,8 +25,11 @@ router.post('/register', async (req, res) => {
 
     const hash = await bcrypt.hash(password, 12);
     const result = db.prepare(
-      'INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)'
-    ).run(username, hash, displayName || username);
+      'INSERT INTO users (username, password_hash, display_name, email) VALUES (?, ?, ?, ?)'
+    ).run(username, hash, displayName || username, email || null);
+
+    // Send welcome email if provided (non-blocking)
+    if (email) sendWelcomeEmail({ email, display_name: displayName || username }).catch(() => {});
 
     const token = jwt.sign(
       { id: result.lastInsertRowid, username },

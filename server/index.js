@@ -19,6 +19,8 @@ import webhookRoutes from './routes/webhook.js';
 import adminRoutes from './routes/admin.js';
 import dashboardRoutes from './routes/dashboard.js';
 import notificationRoutes from './routes/notifications.js';
+import partnerRoutes from './routes/partner.js';
+import settingsRoutes from './routes/settings.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -35,6 +37,8 @@ app.use('/api/webhook', webhookRoutes);
 app.use('/api/admin/webhooks', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/partner', partnerRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

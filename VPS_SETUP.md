@@ -1,4 +1,4 @@
-# VPS Setup Guide — VU Budget App
+# VPS Setup Guide — VU Budget App (Caddy Edition)
 
 ## What you need to install, configure, and create on your Ubuntu VPS (OVH Cloud)
 
@@ -26,20 +26,7 @@ npm -v
 sudo npm install -g pm2
 ```
 
-## 4. Install Nginx
-
-```bash
-sudo apt install -y nginx
-sudo systemctl enable nginx
-```
-
-## 5. Install Certbot (Let's Encrypt SSL)
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-```
-
-## 6. Firewall Setup (UFW)
+## 4. Firewall Setup (UFW)
 
 ```bash
 sudo ufw allow 22/tcp      # SSH
@@ -49,7 +36,7 @@ sudo ufw enable
 sudo ufw status
 ```
 
-## 7. DNS Configuration
+## 5. DNS Configuration
 
 In your domain registrar (or Cloudflare, etc.), create an **A record**:
 
@@ -59,14 +46,12 @@ In your domain registrar (or Cloudflare, etc.), create an **A record**:
 
 This makes `budget.vidalpablo.com` point to your VPS.
 
-Allow up to 24h for DNS propagation (usually minutes with Cloudflare).
-
-## 8. Clone and Install the App
+## 6. Clone and Install the App
 
 ```bash
 cd /opt
 sudo mkdir vu-budget && sudo chown $USER:$USER vu-budget
-git clone YOUR_REPO_URL vu-budget  # or scp/rsync the files
+git clone https://github.com/pabloandresvidal/vu-budget.git vu-budget
 cd vu-budget
 
 # Install all dependencies
@@ -75,7 +60,7 @@ cd server && npm install && cd ..
 cd client && npm install && cd ..
 ```
 
-## 9. Environment Variables
+## 7. Environment Variables
 
 Create a `.env` file in the project root:
 
@@ -98,16 +83,14 @@ Generate a strong JWT secret:
 openssl rand -hex 32
 ```
 
-## 10. Build the Frontend
+## 8. Build the Frontend
 
 ```bash
 cd /opt/vu-budget/client
 npm run build
 ```
 
-This creates the `dist/` folder that Express will serve.
-
-## 11. Start with PM2
+## 9. Start with PM2
 
 ```bash
 cd /opt/vu-budget
@@ -123,58 +106,45 @@ pm2 status
 curl http://localhost:3000/api/health
 ```
 
-## 12. Nginx Reverse Proxy
+## 10. Caddy Reverse Proxy (Multi-Domain)
 
-Create the Nginx config:
+Since you already use Caddy for n8n in Docker, follow these steps to add the budget app:
 
+### A. Create the Caddyfile
 ```bash
-sudo nano /etc/nginx/sites-available/budget.vidalpablo.com
+sudo nano ~/n8n-docker/Caddyfile
 ```
+Paste this inside:
+```caddy
+n8n.vidalpablo.com {
+    reverse_proxy n8n:5678
+}
 
-Contents:
-
-```nginx
-server {
-    listen 80;
-    server_name budget.vidalpablo.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
+budget.vidalpablo.com {
+    reverse_proxy 172.17.0.1:3000
 }
 ```
 
-Enable the site:
-
+### B. Update `docker-compose.yml`
+Open it:
 ```bash
-sudo ln -s /etc/nginx/sites-available/budget.vidalpablo.com /etc/nginx/sites-enabled/
-sudo nginx -t          # Test config
-sudo systemctl reload nginx
+sudo nano ~/n8n-docker/docker-compose.yml
+```
+1. **Remove** the `command:` line for Caddy.
+2. **Add** this line under `volumes:` for `caddy`:
+   ```yaml
+     - ./Caddyfile:/etc/caddy/Caddyfile
+   ```
+
+### C. Restart Docker
+```bash
+cd ~/n8n-docker
+sudo docker compose up -d
 ```
 
-## 13. SSL Certificate (HTTPS)
+---
 
-```bash
-sudo certbot --nginx -d budget.vidalpablo.com
-```
-
-Follow the prompts. Certbot will auto-configure Nginx for HTTPS.
-
-Auto-renewal is set up automatically. Test it:
-
-```bash
-sudo certbot renew --dry-run
-```
-
-## 14. Verify Everything
+## 11. Verify Everything
 
 ```bash
 # Check the app is running
@@ -195,12 +165,11 @@ curl https://budget.vidalpablo.com/api/health
 |------|-----------|
 | **Node.js 20** | Install via NodeSource |
 | **PM2** | `npm install -g pm2` |
-| **Nginx** | Install + reverse proxy config |
-| **Certbot** | Install + run for SSL |
+| **Caddy** | Use existing Docker setup |
+| **Caddyfile** | Map `budget.vidalpablo.com` to port 3000 |
 | **UFW** | Allow ports 22, 80, 443 |
 | **DNS A Record** | `budget` → VPS IP |
 | **.env file** | `JWT_SECRET`, `OPENAI_API_KEY`, `PORT=3000` |
-| **OpenAI API Key** | Get from https://platform.openai.com/api-keys |
 | **Build client** | `cd client && npm run build` |
 
 ## Useful PM2 Commands
@@ -209,14 +178,13 @@ curl https://budget.vidalpablo.com/api/health
 pm2 status          # Check status
 pm2 logs vu-budget  # View logs
 pm2 restart vu-budget  # Restart app
-pm2 monit           # Live monitoring
 ```
 
 ## Updating the App
 
 ```bash
 cd /opt/vu-budget
-git pull              # or rsync new files
+git pull origin main
 cd client && npm run build && cd ..
 pm2 restart vu-budget
 ```

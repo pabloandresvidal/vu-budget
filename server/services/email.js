@@ -1,0 +1,95 @@
+import nodemailer from 'nodemailer';
+
+let transporter = null;
+
+function getTransporter() {
+  if (!transporter && process.env.SMTP_HOST) {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+  }
+  return transporter;
+}
+
+/**
+ * Send an email notification when a transaction needs manual review.
+ */
+export async function sendReviewNotification(user, transaction) {
+  const mailer = getTransporter();
+  if (!mailer || !user.email || !user.email_notifications) return;
+
+  const subject = `💰 Action needed: Transaction from ${transaction.vendor}`;
+  const amount = transaction.amount ? `$${Number(transaction.amount).toFixed(2)}` : 'Unknown amount';
+
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #0c0c1d; color: #f0f0f0; border-radius: 12px; padding: 32px; border: 1px solid rgba(255,255,255,0.1);">
+      <div style="background: linear-gradient(135deg, #7c3aed, #06b6d4); border-radius: 8px; padding: 4px 12px; display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: white; margin-bottom: 24px;">
+        VU Budget
+      </div>
+      <h2 style="margin: 0 0 8px; font-size: 20px; color: white;">Transaction Needs Your Review</h2>
+      <p style="color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 24px;">A new transaction was detected but could not be automatically categorized.</p>
+
+      <div style="background: rgba(255,255,255,0.06); border-radius: 8px; padding: 20px; margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.08);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+          <span style="color: rgba(255,255,255,0.5); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Vendor</span>
+          <span style="color: white; font-weight: 600;">${transaction.vendor || 'Unknown'}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: rgba(255,255,255,0.5); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Amount</span>
+          <span style="color: #a78bfa; font-weight: 700; font-size: 18px;">${amount}</span>
+        </div>
+      </div>
+
+      <a href="${process.env.APP_URL || 'https://budget.vidalpablo.com'}/transactions?tab=review"
+         style="background: linear-gradient(135deg, #7c3aed, #06b6d4); color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: inline-block;">
+        Categorize Transaction →
+      </a>
+
+      <p style="color: rgba(255,255,255,0.3); font-size: 12px; margin-top: 24px;">
+        To stop receiving these emails, log in and update your notification settings.
+      </p>
+    </div>
+  `;
+
+  try {
+    await mailer.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: user.email,
+      subject,
+      html
+    });
+    console.log(`📧 Review email sent to ${user.email}`);
+  } catch (err) {
+    console.error('Email send error:', err.message);
+  }
+}
+
+/**
+ * Send a welcome email when a user registers.
+ */
+export async function sendWelcomeEmail(user) {
+  const mailer = getTransporter();
+  if (!mailer || !user.email) return;
+
+  try {
+    await mailer.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: user.email,
+      subject: '👋 Welcome to VU Budget!',
+      html: `
+        <div style="font-family: Inter, Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #0c0c1d; color: #f0f0f0; border-radius: 12px; padding: 32px; border: 1px solid rgba(255,255,255,0.1);">
+          <h2 style="color: white;">Welcome to VU Budget, ${user.display_name}!</h2>
+          <p style="color: rgba(255,255,255,0.6);">Your budget tracking app is ready. Visit <a href="${process.env.APP_URL || 'https://budget.vidalpablo.com'}" style="color: #a78bfa;">budget.vidalpablo.com</a> to get started.</p>
+        </div>
+      `
+    });
+  } catch (err) {
+    console.error('Welcome email error:', err.message);
+  }
+}

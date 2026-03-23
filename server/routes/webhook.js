@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { categorizeSMS } from '../services/ai.js';
+import { sendReviewNotification } from '../services/email.js';
 
 const router = Router();
 
@@ -9,15 +10,17 @@ const router = Router();
 router.post('/:userId', async (req, res) => {
   try {
     const userId = Number(req.params.userId);
-    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    const user = db.prepare('SELECT id, email, email_notifications, linked_to FROM users WHERE id = ?').get(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+    // Use primary user's data if this is a linked (partner) account
+    const ownerId = user.linked_to || user.id;
 
-    // Get active webhook configs for this user
+    // Get active webhook configs for this user (or their primary account)
     const configs = db.prepare(
       'SELECT * FROM webhook_configs WHERE user_id = ? AND is_active = 1'
-    ).all(userId);
+    ).all(ownerId);
 
     // Try to extract SMS from configured headers, fallback to X-SMS-Body, then body
     let smsText = '';
@@ -45,8 +48,8 @@ router.post('/:userId', async (req, res) => {
       return res.status(400).json({ error: 'No SMS content found in request' });
     }
 
-    // Get user's budgets for AI categorization
-    const budgets = db.prepare('SELECT id, title, description FROM budgets WHERE user_id = ?').all(userId);
+    // Get budgets from the primary account
+    const budgets = db.prepare('SELECT id, title, description FROM budgets WHERE user_id = ?').all(ownerId);
 
     // Categorize with AI
     const result = await categorizeSMS(smsText, budgets);
@@ -55,12 +58,12 @@ router.post('/:userId', async (req, res) => {
     const needsReview = result.confidence < 0.7 || !result.budgetId ? 1 : 0;
     const effectiveAmount = result.amount;
 
-    // Insert transaction
+    // Insert transaction under the primary account
     const txResult = db.prepare(`
       INSERT INTO transactions (user_id, budget_id, vendor, description, amount, percentage, effective_amount, raw_sms, categorized_by, needs_review)
       VALUES (?, ?, ?, ?, ?, 100, ?, ?, ?, ?)
     `).run(
-      userId,
+      ownerId,
       needsReview ? null : result.budgetId,
       result.vendor,
       result.description,
@@ -71,16 +74,20 @@ router.post('/:userId', async (req, res) => {
       needsReview
     );
 
-    // Create notification if needs review
+    // Create in-app notification if needs review
     if (needsReview) {
       db.prepare(`
         INSERT INTO notifications (user_id, transaction_id, message)
         VALUES (?, ?, ?)
       `).run(
-        userId,
+        ownerId,
         txResult.lastInsertRowid,
         `New transaction from "${result.vendor}" for $${result.amount.toFixed(2)} needs categorization.`
       );
+
+      // Send email notification (non-blocking)
+      const primaryUser = db.prepare('SELECT id, email, email_notifications FROM users WHERE id = ?').get(ownerId);
+      sendReviewNotification(primaryUser, { vendor: result.vendor, amount: result.amount }).catch(() => {});
     }
 
     res.status(201).json({

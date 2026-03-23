@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Budgets from './pages/Budgets';
 import Transactions from './pages/Transactions';
 import Admin from './pages/Admin';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="budgets" element={<Budgets />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="admin" element={<Admin />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
