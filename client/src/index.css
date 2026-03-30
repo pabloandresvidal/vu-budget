@@ -1297,8 +1297,9 @@ select.input {
   }
 
   .mobile-tab-icon {
-    font-size: 1.3rem;
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .mobile-tab.active {
