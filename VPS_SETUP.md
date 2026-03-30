@@ -185,6 +185,7 @@ pm2 restart vu-budget  # Restart app
 ```bash
 cd /opt/vu-budget
 git pull origin main
+cd server && npm install && cd ..
 cd client && npm run build && cd ..
 pm2 restart vu-budget
 ```
