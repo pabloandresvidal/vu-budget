@@ -39,20 +39,22 @@ self.addEventListener('notificationclick', (event) => {
     navigator.clearAppBadge().catch(e => console.warn('Badge clear error', e));
   }
 
-  const urlToOpen = event.notification.data.url || '/dashboard';
+  const urlPath = event.notification.data.url || '/';
+  const fullUrl = new URL(urlPath, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Check if there is already a window/tab open with the target URL
+      // Focus any existing app window (same origin)
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        if (client.url === urlToOpen && 'focus' in client) {
+        if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
+          client.navigate(fullUrl);
           return client.focus();
         }
       }
       // If no window is open, open a new one
       if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+        return clients.openWindow(fullUrl);
       }
     })
   );

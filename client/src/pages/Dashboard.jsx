@@ -268,9 +268,11 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                 <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
                   tickFormatter={d => new Date(d + 'T00:00').toLocaleDateString('en', { month: 'short', day: 'numeric' })}
-                  axisLine={false} tickLine={false} />
+                  axisLine={false} tickLine={false}
+                  label={{ value: 'Date', position: 'insideBottom', offset: -2, fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} />
                 <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
-                  tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} />
+                  tickFormatter={v => `$${v}`} axisLine={false} tickLine={false}
+                  label={{ value: 'Amount ($)', angle: -90, position: 'insideLeft', offset: 10, fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area type="monotone" dataKey="total" stroke="#7c3aed" strokeWidth={2}
                   fill="url(#trendGradient)" name="Spent" />
@@ -290,12 +292,12 @@ export default function Dashboard() {
         <div className="chart-title">Top Vendors</div>
         {vendors.length > 0 ? (
           <ResponsiveContainer width="100%" height={Math.max(200, vendors.length * 40)}>
-            <BarChart data={vendors} layout="vertical" margin={{ left: 80, right: 20 }}>
+            <BarChart data={vendors} layout="vertical" margin={{ left: 20, right: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
               <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
                 tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="vendor" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }}
-                axisLine={false} tickLine={false} width={80} />
+              <YAxis type="category" dataKey="vendor" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                axisLine={false} tickLine={false} width={120} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="total" name="Total Spent" radius={[0, 4, 4, 0]} maxBarSize={24}>
                 {vendors.map((_, i) => (
