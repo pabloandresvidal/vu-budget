@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import hpp from 'hpp';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -37,9 +38,19 @@ app.set('trust proxy', 1);
 
 // Security headers
 app.use(helmet({
-  contentSecurityPolicy: false, // Disabled so Vite dev proxy works; enable in prod if needed
-  crossOriginEmbedderPolicy: false
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+  crossOriginEmbedderPolicy: false,
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  ieNoOpen: true,
+  noSniff: true,
+  xssFilter: true,
 }));
+
+// Protect against HTTP Parameter Pollution attacks
+app.use(hpp());
 
 // CORS
 app.use(cors({
@@ -52,21 +63,57 @@ app.use(cors({
 app.use(express.json({ limit: '10kb' })); // Prevent huge payloads
 
 // Rate limiters
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
-  message: { error: 'Too many attempts. Please try again later.' },
+// 1. Global Limiter: basic defense against volumetric scraping
+const globalLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 500, // Limit each IP to 500 requests per 10 mins
+  message: { error: 'Too many requests from this IP, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false
 });
 
+// 2. Auth Limiters: prevent brute force & account enumeration
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 attempts max for anything hitting /api/auth in general
+  message: { error: 'Too many auth attempts. Please try again later.' }
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // Max 10 login attempts per 15 min
+  message: { error: 'Too many login attempts. Please try again later.' }
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Max 5 account registrations per hour per IP
+  message: { error: 'Too many accounts created from this IP. Please try again later.' }
+});
+
+const resetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // Max 3 password reset requests per hour per IP
+  message: { error: 'Too many password reset requests. Please try again later.' }
+});
+
+// 3. Webhook Limiter
 const webhookLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
   message: { error: 'Too many webhook requests.' }
 });
 
+// Apply global limiter to all routes
+app.use(globalLimiter);
+
 // API Routes
+// Apply specific strict limiters to sensitive auth paths BEFORE general auth router
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/register', registerLimiter);
+app.use('/api/auth/forgot-password', resetLimiter);
+app.use('/api/auth/reset-password', resetLimiter);
+
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/transactions', transactionRoutes);
