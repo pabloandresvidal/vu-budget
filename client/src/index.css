@@ -1225,9 +1225,9 @@ select.input {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-md);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--glass-shadow);
   border: 1px solid var(--glass-border);
   display: none;
   align-items: center;
@@ -1429,6 +1429,7 @@ select.input {
   transform: translateX(120%);
   opacity: 0;
   transition: transform var(--transition-spring), opacity var(--transition-base);
+  cursor: pointer;
 }
 .toast-notification.visible {
   transform: translateX(0);

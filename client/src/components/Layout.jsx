@@ -90,7 +90,13 @@ export default function Layout() {
   return (
     <div className="app-layout">
       {/* Toast Notification */}
-      <div className={`toast-notification ${toast ? 'visible' : ''}`}>
+      <div 
+        className={`toast-notification ${toast ? 'visible' : ''}`}
+        onClick={() => {
+          setToast(null);
+          navigate('/transactions');
+        }}
+      >
         <div style={{ marginRight: 12, fontSize: '1.2rem' }}>🔔</div>
         <div>
           <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>New Transaction</div>
@@ -137,7 +143,7 @@ export default function Layout() {
       {/* Main */}
       <main className="main-content">
         {/* Top bar with notification */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, position: 'relative', zIndex: 105 }}>
           <div ref={notifRef} style={{ position: 'relative' }}>
             <button className="notif-bell" onClick={() => setShowNotifs(!showNotifs)}>
               🔔

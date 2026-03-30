@@ -22,10 +22,12 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: 'rgba(18,18,42,0.95)', border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem'
+      background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)',
+      color: 'var(--text-primary)',
+      borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem',
+      boxShadow: 'var(--glass-shadow)'
     }}>
-      <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>{label}</div>
+      <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>{label}</div>
       {payload.map((p, i) => (
         <div key={i} style={{ color: p.color || '#a78bfa' }}>
           {p.name}: {formatCurrency(p.value)}
