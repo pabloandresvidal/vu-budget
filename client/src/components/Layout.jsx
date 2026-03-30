@@ -104,11 +104,6 @@ export default function Layout() {
         </div>
       </div>
 
-      {/* Mobile menu button */}
-      <button className="mobile-menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}
-        style={{ position: 'fixed', top: 16, left: 16, zIndex: 101 }}>
-        {sidebarOpen ? '✕' : '☰'}
-      </button>
 
       {/* Sidebar */}
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
@@ -145,7 +140,13 @@ export default function Layout() {
         {/* Top bar with notification */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, position: 'relative', zIndex: 105, paddingTop: 'env(safe-area-inset-top)' }}>
           <div ref={notifRef} style={{ position: 'relative' }}>
-            <button className="notif-bell" onClick={() => setShowNotifs(!showNotifs)}>
+            <button
+              className="notif-bell"
+              type="button"
+              role="button"
+              onClick={() => setShowNotifs(!showNotifs)}
+              onTouchEnd={(e) => { e.preventDefault(); setShowNotifs(prev => !prev); }}
+            >
               🔔
               {unreadCount > 0 && <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
             </button>
@@ -181,11 +182,20 @@ export default function Layout() {
         </div>
       </main>
 
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99 }}
-          onClick={() => setSidebarOpen(false)} />
-      )}
+      {/* Mobile Bottom Tab Bar */}
+      <nav className="mobile-bottom-tabs">
+        {navLinks.map(link => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            end={link.end}
+            className={({ isActive }) => `mobile-tab${isActive ? ' active' : ''}`}
+          >
+            <span className="mobile-tab-icon">{link.icon}</span>
+            {link.label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }
