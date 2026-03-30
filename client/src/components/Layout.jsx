@@ -143,7 +143,7 @@ export default function Layout() {
       {/* Main */}
       <main className="main-content">
         {/* Top bar with notification */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, position: 'relative', zIndex: 105 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, position: 'relative', zIndex: 105, paddingTop: 'env(safe-area-inset-top)' }}>
           <div ref={notifRef} style={{ position: 'relative' }}>
             <button className="notif-bell" onClick={() => setShowNotifs(!showNotifs)}>
               🔔

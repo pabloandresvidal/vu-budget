@@ -1243,10 +1243,11 @@ select.input {
   }
   .main-content {
     margin-left: 0;
-    padding: var(--space-md);
+    padding: calc(var(--space-md) + env(safe-area-inset-top)) var(--space-md) var(--space-md) var(--space-md);
   }
   .mobile-menu-toggle {
     display: flex;
+    top: calc(16px + env(safe-area-inset-top)) !important;
   }
   .stat-grid {
     grid-template-columns: 1fr 1fr;
@@ -1488,6 +1489,9 @@ select.input {
 /* --- Mobile Global Overflow Fixes --- */
 html, body {
   overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  overscroll-behavior-x: none;
 }
 #root {
   overflow-x: hidden;
