@@ -33,7 +33,7 @@ import { startCronScheduler } from './services/cron.js';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// Trust reverse proxy (Nginx) so rate-limiting uses the real client IP
+// Trust reverse proxy (Nginx/Caddy) so rate-limiting uses the real client IP
 app.set('trust proxy', 1);
 
 // Security headers
@@ -69,39 +69,45 @@ const globalLimiter = rateLimit({
   max: 500, // Limit each IP to 500 requests per 10 mins
   message: { error: 'Too many requests from this IP, please try again later.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 });
 
 // 2. Auth Limiters: prevent brute force & account enumeration
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // 20 attempts max for anything hitting /api/auth in general
-  message: { error: 'Too many auth attempts. Please try again later.' }
+  message: { error: 'Too many auth attempts. Please try again later.' },
+  validate: { xForwardedForHeader: false }
 });
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10, // Max 10 login attempts per 15 min
-  message: { error: 'Too many login attempts. Please try again later.' }
+  message: { error: 'Too many login attempts. Please try again later.' },
+  validate: { xForwardedForHeader: false }
 });
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // Max 5 account registrations per hour per IP
-  message: { error: 'Too many accounts created from this IP. Please try again later.' }
+  message: { error: 'Too many accounts created from this IP. Please try again later.' },
+  validate: { xForwardedForHeader: false }
 });
 
 const resetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 3, // Max 3 password reset requests per hour per IP
-  message: { error: 'Too many password reset requests. Please try again later.' }
+  message: { error: 'Too many password reset requests. Please try again later.' },
+  validate: { xForwardedForHeader: false }
 });
 
 // 3. Webhook Limiter
 const webhookLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
-  message: { error: 'Too many webhook requests.' }
+  message: { error: 'Too many webhook requests.' },
+  validate: { xForwardedForHeader: false }
 });
 
 // Apply global limiter to all routes
