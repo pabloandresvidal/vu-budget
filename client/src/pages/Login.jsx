@@ -81,16 +81,23 @@ export default function Login() {
         <p className="auth-subtitle">Sign in to your VU Budget account</p>
 
         {/* Mode Toggle */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 4 }}>
+        <div style={{
+          display: 'flex', gap: 4, marginBottom: 24,
+          background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 4,
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}>
           <button
             type="button"
             onClick={() => switchMode('password')}
             style={{
-              flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
-              background: mode === 'password' ? 'var(--primary-color)' : 'transparent',
-              color: mode === 'password' ? '#fff' : 'var(--text-tertiary)',
+              flex: 1, padding: '10px 16px', borderRadius: 10, border: 'none',
+              background: mode === 'password'
+                ? 'rgba(255,255,255,0.12)'
+                : 'transparent',
+              color: mode === 'password' ? '#fff' : 'rgba(255,255,255,0.4)',
               fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
-              transition: 'all 0.2s ease',
+              transition: 'all 0.25s ease',
+              boxShadow: mode === 'password' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
             }}
           >
             Password
@@ -99,14 +106,17 @@ export default function Login() {
             type="button"
             onClick={() => switchMode('code')}
             style={{
-              flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
-              background: mode === 'code' ? 'var(--primary-color)' : 'transparent',
-              color: mode === 'code' ? '#fff' : 'var(--text-tertiary)',
+              flex: 1, padding: '10px 16px', borderRadius: 10, border: 'none',
+              background: mode === 'code'
+                ? 'rgba(255,255,255,0.12)'
+                : 'transparent',
+              color: mode === 'code' ? '#fff' : 'rgba(255,255,255,0.4)',
               fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
-              transition: 'all 0.2s ease',
+              transition: 'all 0.25s ease',
+              boxShadow: mode === 'code' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
             }}
           >
-            Email Code
+            Passwordless
           </button>
         </div>
 
