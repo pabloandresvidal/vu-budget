@@ -124,6 +124,10 @@ runMigration(`ALTER TABLE users ADD COLUMN reset_expires DATETIME`);
 runMigration(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0`);
 runMigration(`ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free'`);
 
+// Passwordless login
+runMigration(`ALTER TABLE users ADD COLUMN login_code TEXT`);
+runMigration(`ALTER TABLE users ADD COLUMN login_code_expires DATETIME`);
+
 // Budget automation and UI features
 runMigration(`ALTER TABLE budgets ADD COLUMN auto_reset INTEGER DEFAULT 0`);
 runMigration(`ALTER TABLE budgets ADD COLUMN carry_over INTEGER DEFAULT 0`);

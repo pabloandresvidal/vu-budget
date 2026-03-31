@@ -39,6 +39,8 @@ export const api = {
   completeOnboarding: (tier) => request('/auth/complete-onboarding', { method: 'POST', body: JSON.stringify({ tier }) }),
   forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   resetPassword: (token, password) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
+  requestLoginCode: (email) => request('/auth/request-code', { method: 'POST', body: JSON.stringify({ email }) }),
+  verifyLoginCode: (email, code) => request('/auth/verify-code', { method: 'POST', body: JSON.stringify({ email, code }) }),
 
   // Budgets
   getBudgets: () => request('/budgets'),

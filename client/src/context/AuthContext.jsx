@@ -55,8 +55,16 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const loginWithCode = async (email, code) => {
+    const data = await api.verifyLoginCode(email, code);
+    localStorage.setItem('vu_token', data.token);
+    localStorage.setItem('vu_user', JSON.stringify(data.user));
+    setUser(data.user);
+    return data;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, loginWithCode }}>
       {children}
     </AuthContext.Provider>
   );

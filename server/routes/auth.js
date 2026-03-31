@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js';
+import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendLoginCode } from '../services/email.js';
 
 const router = Router();
 
@@ -225,6 +225,85 @@ router.post('/reset-password', async (req, res) => {
   db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL WHERE id = ?').run(hash, user.id);
 
   res.json({ success: true, message: 'Password has been successfully reset! You may now log in.' });
+});
+
+// POST /api/auth/request-code
+// Send a 6-digit passwordless login code to the user's email
+router.post('/request-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    // Always return generic success to prevent email enumeration
+    const genericMsg = { message: 'If an account with that email exists, a login code has been sent.' };
+
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase());
+    if (!user || !user.is_verified) {
+      return res.json(genericMsg);
+    }
+
+    // Generate 6-digit code
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
+
+    db.prepare('UPDATE users SET login_code = ?, login_code_expires = ? WHERE id = ?').run(code, expires, user.id);
+
+    // Send code via email (non-blocking)
+    sendLoginCode(user, code).catch(() => {});
+
+    res.json(genericMsg);
+  } catch (err) {
+    console.error('Request-code error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/auth/verify-code
+// Validate the 6-digit code and return a JWT
+router.post('/verify-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'Email and code are required' });
+
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase());
+
+    if (!user || !user.login_code || user.login_code !== code.trim()) {
+      return res.status(401).json({ error: 'Invalid or expired code.' });
+    }
+
+    if (new Date(user.login_code_expires) < new Date()) {
+      // Clear expired code
+      db.prepare('UPDATE users SET login_code = NULL, login_code_expires = NULL WHERE id = ?').run(user.id);
+      return res.status(401).json({ error: 'Code has expired. Please request a new one.' });
+    }
+
+    // Clear used code
+    db.prepare('UPDATE users SET login_code = NULL, login_code_expires = NULL WHERE id = ?').run(user.id);
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        onboarding_completed: Boolean(user.onboarding_completed),
+        subscription_tier: user.subscription_tier,
+        notify_budget_updates: Boolean(user.notify_budget_updates),
+        notify_tx_updates: Boolean(user.notify_tx_updates),
+        notify_weekly_summary: Boolean(user.notify_weekly_summary),
+        notify_high_spending: Boolean(user.notify_high_spending)
+      }
+    });
+  } catch (err) {
+    console.error('Verify-code error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 export default router;

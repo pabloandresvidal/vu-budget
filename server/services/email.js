@@ -190,3 +190,39 @@ export async function sendPasswordResetEmail(user, token) {
   }
 }
 
+/**
+ * Send a one-time login code to the user's email.
+ */
+export async function sendLoginCode(user, code) {
+  const mailer = getTransporter();
+  if (!mailer || !user.email) return;
+
+  try {
+    await mailer.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: user.email,
+      subject: '🔑 Your VU Budget Login Code',
+      html: `
+        <div style="font-family: Inter, Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #0c0c1d; color: #f0f0f0; border-radius: 12px; padding: 32px; border: 1px solid rgba(255,255,255,0.1);">
+          <div style="background: linear-gradient(135deg, #7c3aed, #06b6d4); border-radius: 8px; padding: 4px 12px; display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: white; margin-bottom: 24px;">
+            VU Budget
+          </div>
+          <h2 style="margin: 0 0 8px; font-size: 20px; color: white;">Your Login Code</h2>
+          <p style="color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 24px;">
+            Hi ${user.display_name}, use the code below to sign in to your account. It expires in 10 minutes.
+          </p>
+          <div style="background: rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.08); text-align: center;">
+            <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #a78bfa; font-family: 'Courier New', monospace;">${code}</span>
+          </div>
+          <p style="color: rgba(255,255,255,0.3); font-size: 12px; margin-top: 24px;">
+            If you didn't request this code, you can safely ignore this email.<br>
+            Never share your code with anyone.
+          </p>
+        </div>
+      `
+    });
+    console.log(`📧 Login code sent to ${user.email}`);
+  } catch (err) {
+    console.error('Login code email error:', err.message);
+  }
+}

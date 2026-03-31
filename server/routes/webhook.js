@@ -64,8 +64,18 @@ router.post('/:token', async (req, res) => {
     // Get budgets from the primary account
     const budgets = db.prepare('SELECT id, title, description FROM budgets WHERE user_id = ?').all(ownerId);
 
-    // Categorize with AI
-    const result = await categorizeSMS(smsText, budgets);
+    // Fetch recent categorized transactions for AI learning context
+    const pastTransactions = db.prepare(`
+      SELECT t.vendor, b.title AS budget_title, b.id AS budget_id
+      FROM transactions t
+      JOIN budgets b ON t.budget_id = b.id
+      WHERE t.user_id = ? AND t.needs_review = 0 AND t.budget_id IS NOT NULL
+      ORDER BY t.created_at DESC
+      LIMIT 50
+    `).all(ownerId);
+
+    // Categorize with AI (now with history context)
+    const result = await categorizeSMS(smsText, budgets, pastTransactions);
 
     // Determine if needs review — lower threshold so clear matches auto-categorize
     const needsReview = result.confidence < 0.4 || !result.budgetId ? 1 : 0;

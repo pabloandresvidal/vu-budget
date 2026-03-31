@@ -11,8 +11,11 @@ function getClient() {
 
 /**
  * Parse an SMS message and categorize the transaction using Gemini AI.
+ * @param {string} smsText - The raw SMS text
+ * @param {Array} budgets - Available budgets for the user
+ * @param {Array} history - Recent vendor→budget mappings for learning context
  */
-export async function categorizeSMS(smsText, budgets) {
+export async function categorizeSMS(smsText, budgets, history = []) {
   const client = getClient();
 
   if (!client) {
@@ -24,21 +27,40 @@ export async function categorizeSMS(smsText, budgets) {
     ? budgets.map(b => `ID: ${b.id} — "${b.title}" (${b.description || 'no description'})`).join('\n')
     : 'No budgets configured yet.';
 
+  // Build history context for AI learning
+  let historySection = '';
+  if (history.length > 0) {
+    // Deduplicate: show unique vendor→budget pairs
+    const seen = new Set();
+    const unique = [];
+    for (const h of history) {
+      const key = `${h.vendor.toLowerCase()}→${h.budget_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(h);
+      }
+    }
+    historySection = `\n\nPAST CATEGORIZATIONS (use these as strong hints for matching similar vendors):
+${unique.map(h => `"${h.vendor}" → "${h.budget_title}" (ID ${h.budget_id})`).join('\n')}
+
+IMPORTANT: If the current vendor name is similar to or matches any vendor from the past categorizations above, assign it to the same budget. This is a learned mapping from the user's history.`;
+  }
+
   const prompt = `You are a strict financial transaction categorizer. Analyze this bank SMS notification.
 
 SMS: "${smsText}"
 
 Available budgets:
-${budgetList}
+${budgetList}${historySection}
 
 CRITICAL RULES:
 1. Extract the exactly correct vendor name. Ignore the bank name (e.g., "Rogers Bank", "Chase"). Find the merchant where the money was spent. 
    Example: "Rogers Bank: $17.51 spent at Costco" -> vendor is "Costco".
    Example: "Purchase of $4.00 at Starbucks" -> vendor is "Starbucks".
 2. Extract the transaction amount as a positive number.
-3. Match the vendor to the best budget based on the vendor name and budget descriptions.
+3. Match the vendor to the best budget based on the vendor name, budget descriptions, AND past categorizations above.
 4. Confidence scoring:
-   - 0.8 to 1.0: Perfect semantic match (e.g., Costco/Walmart -> Groceries)
+   - 0.8 to 1.0: Perfect semantic match (e.g., Costco/Walmart -> Groceries) OR vendor appeared in past categorizations
    - 0.5 to 0.79: Reasonable guess
    - 0.0 to 0.49: Unsure, or no budget matches. Use this if you cannot decipher the vendor securely.
 5. If no budgets exist, set budgetId to null and confidence to 0.
@@ -60,6 +82,7 @@ You must output ONLY valid JSON. Absolutely no markdown blocks, no \`\`\`json, n
     });
     console.log('[AI PIPELINE] Sending to Gemini. SMS:', smsText);
     console.log('[AI PIPELINE] Budgets:', budgetList);
+    if (history.length > 0) console.log(`[AI PIPELINE] Including ${history.length} past categorizations for learning context`);
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
 
