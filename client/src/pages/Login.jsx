@@ -83,8 +83,8 @@ export default function Login() {
         {/* Mode Toggle */}
         <div style={{
           display: 'flex', gap: 4, marginBottom: 24,
-          background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 4,
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--glass-bg)', borderRadius: 12, padding: 4,
+          border: '1px solid var(--glass-border)',
         }}>
           <button
             type="button"
@@ -92,12 +92,12 @@ export default function Login() {
             style={{
               flex: 1, padding: '10px 16px', borderRadius: 10, border: 'none',
               background: mode === 'password'
-                ? 'rgba(255,255,255,0.12)'
+                ? 'var(--accent-primary)'
                 : 'transparent',
-              color: mode === 'password' ? '#fff' : 'rgba(255,255,255,0.4)',
+              color: mode === 'password' ? '#fff' : 'var(--text-tertiary)',
               fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
               transition: 'all 0.25s ease',
-              boxShadow: mode === 'password' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+              boxShadow: mode === 'password' ? '0 2px 12px rgba(124, 58, 237, 0.4)' : 'none',
             }}
           >
             Password
@@ -108,12 +108,12 @@ export default function Login() {
             style={{
               flex: 1, padding: '10px 16px', borderRadius: 10, border: 'none',
               background: mode === 'code'
-                ? 'rgba(255,255,255,0.12)'
+                ? 'var(--accent-primary)'
                 : 'transparent',
-              color: mode === 'code' ? '#fff' : 'rgba(255,255,255,0.4)',
+              color: mode === 'code' ? '#fff' : 'var(--text-tertiary)',
               fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
               transition: 'all 0.25s ease',
-              boxShadow: mode === 'code' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+              boxShadow: mode === 'code' ? '0 2px 12px rgba(124, 58, 237, 0.4)' : 'none',
             }}
           >
             Passwordless
