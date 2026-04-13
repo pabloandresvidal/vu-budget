@@ -147,4 +147,7 @@ runMigration(`ALTER TABLE budgets ADD COLUMN auto_reset INTEGER DEFAULT 0`);
 runMigration(`ALTER TABLE budgets ADD COLUMN carry_over INTEGER DEFAULT 0`);
 runMigration(`ALTER TABLE budgets ADD COLUMN last_reset_at TEXT`);
 
+// Currency preference
+runMigration(`ALTER TABLE users ADD COLUMN currency TEXT DEFAULT 'USD'`);
+
 export default db;

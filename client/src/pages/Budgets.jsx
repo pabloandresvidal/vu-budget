@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
-
-function formatCurrency(n) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0);
-}
+import { useCurrency } from '../context/CurrencyContext';
 
 export default function Budgets() {
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrency();
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);

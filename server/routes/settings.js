@@ -7,7 +7,7 @@ router.use(authMiddleware);
 
 // PUT /api/settings/profile — Update display name, email, notification prefs
 router.put('/profile', (req, res) => {
-  const { displayName, email, emailNotifications, notify_budget_updates, notify_tx_updates, notify_weekly_summary, notify_high_spending } = req.body;
+  const { displayName, email, emailNotifications, notify_budget_updates, notify_tx_updates, notify_weekly_summary, notify_high_spending, currency } = req.body;
 
   const updates = [];
   const values = [];
@@ -40,6 +40,10 @@ router.put('/profile', (req, res) => {
     updates.push('notify_high_spending = ?');
     values.push(notify_high_spending ? 1 : 0);
   }
+  if (currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(currency || 'USD');
+  }
 
   if (updates.length === 0) {
     return res.status(400).json({ error: 'No fields to update' });
@@ -58,7 +62,8 @@ router.put('/profile', (req, res) => {
     notify_budget_updates: !!user.notify_budget_updates,
     notify_tx_updates: !!user.notify_tx_updates,
     notify_weekly_summary: !!user.notify_weekly_summary,
-    notify_high_spending: !!user.notify_high_spending
+    notify_high_spending: !!user.notify_high_spending,
+    currency: user.currency || 'USD'
   });
 });
 
@@ -76,7 +81,8 @@ router.get('/profile', (req, res) => {
     notify_budget_updates: !!user.notify_budget_updates,
     notify_tx_updates: !!user.notify_tx_updates,
     notify_weekly_summary: !!user.notify_weekly_summary,
-    notify_high_spending: !!user.notify_high_spending
+    notify_high_spending: !!user.notify_high_spending,
+    currency: user.currency || 'USD'
   });
 });
 

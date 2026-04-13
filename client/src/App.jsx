@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 import Layout from './components/Layout';
 import AnalyticsTracker from './components/AnalyticsTracker';
 import Login from './pages/Login';
@@ -38,6 +39,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+      <CurrencyProvider>
         <BrowserRouter>
           <AnalyticsTracker />
           <InstallPWA />
@@ -60,6 +62,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
+      </CurrencyProvider>
       </AuthProvider>
     </ThemeProvider>
   );

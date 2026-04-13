@@ -1,15 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
+import { useCurrency } from '../context/CurrencyContext';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar
 } from 'recharts';
 
 const COLORS = ['#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6'];
-
-function formatCurrency(n) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0);
-}
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -38,6 +35,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Dashboard() {
+  const { formatCurrency } = useCurrency();
   const [summary, setSummary] = useState(null);
   const [categories, setCategories] = useState([]);
   const [trend, setTrend] = useState([]);

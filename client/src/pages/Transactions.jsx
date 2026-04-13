@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../utils/api';
-
-function formatCurrency(n) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0);
-}
+import { useCurrency } from '../context/CurrencyContext';
 
 export default function Transactions() {
+  const { formatCurrency } = useCurrency();
   const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
@@ -104,7 +102,7 @@ export default function Transactions() {
   const activeBudgetName = filterBudget ? budgets.find(b => String(b.id) === String(filterBudget))?.title : null;
 
   return (
-    <div className="page-enter">
+    <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Transactions</h1>

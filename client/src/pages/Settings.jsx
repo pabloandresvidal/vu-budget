@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-
-function formatCurrency(n) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0);
-}
+import { useCurrency, CURRENCIES } from '../context/CurrencyContext';
 
 export default function Settings() {
   const { logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { currency, setCurrency, formatCurrency } = useCurrency();
   const [profile, setProfile] = useState(null);
   const [partner, setPartner] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -343,6 +341,24 @@ export default function Settings() {
             checked={theme === 'dark'}
             onChange={toggleTheme}
           />
+        </div>
+
+        {/* Currency Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--glass-border)' }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>💱 Currency</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Choose how amounts are displayed throughout the app</div>
+          </div>
+          <select
+            className="input"
+            value={currency}
+            onChange={e => setCurrency(e.target.value)}
+            style={{ width: 200, textAlign: 'left' }}
+          >
+            {CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>{c.symbol} {c.code} — {c.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
