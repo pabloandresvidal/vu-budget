@@ -3,6 +3,10 @@ import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
+function formatCurrency(n) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0);
+}
+
 export default function Settings() {
   const { logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -23,7 +27,23 @@ export default function Settings() {
   const [notifyHighSpent, setNotifyHighSpent] = useState(true);
   const [ignoredPatterns, setIgnoredPatterns] = useState([]);
 
+  // Webhook config state
+  const [webhooks, setWebhooks] = useState([]);
+  const [webhookLoading, setWebhookLoading] = useState(true);
+  const [showWebhookModal, setShowWebhookModal] = useState(false);
+  const [editingWebhook, setEditingWebhook] = useState(null);
+  const [webhookForm, setWebhookForm] = useState({ name: '', headerName: 'X-SMS-Body' });
+  const [webhookSaving, setWebhookSaving] = useState(false);
+  const [copied, setCopied] = useState(null);
+
+  // Webhook log state
+  const [webhookLog, setWebhookLog] = useState([]);
+  const [webhookLogTotal, setWebhookLogTotal] = useState(0);
+  const [logTab, setLogTab] = useState('all'); // 'all' | 'transactions'
+  const [logLoading, setLogLoading] = useState(false);
+
   useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { loadWebhookLog(); }, [logTab]);
 
   async function fetchAll() {
     setLoading(true);
@@ -48,6 +68,31 @@ export default function Settings() {
     } finally {
       setLoading(false);
     }
+
+    // Load webhooks
+    loadWebhooks();
+    loadWebhookLog();
+  }
+
+  async function loadWebhooks() {
+    setWebhookLoading(true);
+    try {
+      const data = await api.getWebhooks();
+      setWebhooks(data);
+    } catch (err) { console.error(err); }
+    finally { setWebhookLoading(false); }
+  }
+
+  async function loadWebhookLog() {
+    setLogLoading(true);
+    try {
+      const data = logTab === 'transactions'
+        ? await api.getWebhookTransactions()
+        : await api.getWebhookLog();
+      setWebhookLog(data.logs || []);
+      setWebhookLogTotal(data.total || 0);
+    } catch (err) { console.error(err); }
+    finally { setLogLoading(false); }
   }
 
   function showMsg(type, text) {
@@ -143,6 +188,78 @@ export default function Settings() {
     }
   }
 
+  // ── Webhook handlers ──
+  function openCreateWebhook() {
+    setEditingWebhook(null);
+    setWebhookForm({ name: '', headerName: 'X-SMS-Body' });
+    setShowWebhookModal(true);
+  }
+
+  function openEditWebhook(wh) {
+    setEditingWebhook(wh);
+    setWebhookForm({ name: wh.name, headerName: wh.headerName });
+    setShowWebhookModal(true);
+  }
+
+  async function handleSaveWebhook(e) {
+    e.preventDefault();
+    setWebhookSaving(true);
+    try {
+      if (editingWebhook) {
+        await api.updateWebhook(editingWebhook.id, webhookForm);
+      } else {
+        await api.createWebhook(webhookForm);
+      }
+      setShowWebhookModal(false);
+      loadWebhooks();
+    } catch (err) { alert(err.message); }
+    finally { setWebhookSaving(false); }
+  }
+
+  async function handleToggleWebhook(wh) {
+    try {
+      await api.updateWebhook(wh.id, { isActive: !wh.isActive });
+      loadWebhooks();
+    } catch (err) { alert(err.message); }
+  }
+
+  async function handleDeleteWebhook(id) {
+    if (!confirm('Delete this webhook configuration?')) return;
+    try {
+      await api.deleteWebhook(id);
+      loadWebhooks();
+    } catch (err) { alert(err.message); }
+  }
+
+  async function handleRegenerateToken(id) {
+    if (!confirm('Regenerate secret token? The old token will stop working.')) return;
+    try {
+      await api.regenerateToken(id);
+      loadWebhooks();
+    } catch (err) { alert(err.message); }
+  }
+
+  function copyToClipboard(text, id) {
+    navigator.clipboard.writeText(text);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  function getFullWebhookUrl(wh) {
+    const base = window.location.origin;
+    return `${base}${wh.webhookUrl}`;
+  }
+
+  function getStatusBadge(status) {
+    switch (status) {
+      case 'processed': return <span className="badge badge-success">Processed</span>;
+      case 'ignored_pattern': return <span className="badge badge-warning">Ignored (Rule)</span>;
+      case 'ignored_payment': return <span className="badge badge-info">Payment</span>;
+      case 'error': return <span className="badge badge-danger">Error</span>;
+      default: return <span className="badge">{status}</span>;
+    }
+  }
+
   if (loading) {
     return (
       <div className="page-enter">
@@ -157,7 +274,7 @@ export default function Settings() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Manage your profile, partner, and notifications</p>
+          <p className="page-subtitle">Manage your profile, webhooks, partner, and notifications</p>
         </div>
       </div>
 
@@ -227,6 +344,149 @@ export default function Settings() {
             onChange={toggleTheme}
           />
         </div>
+      </div>
+
+      {/* Webhook Configuration */}
+      <div className="glass-card-static settings-section" style={{ padding: 24, marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--glass-border)' }}>
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0 }}>⚙️ Webhook Configuration</h2>
+          <button className="btn btn-primary btn-sm" onClick={openCreateWebhook}>+ New Webhook</button>
+        </div>
+
+        {/* Info banner */}
+        <div style={{ padding: '12px 16px', marginBottom: 16, borderLeft: '3px solid var(--accent-primary)', background: 'var(--glass-bg)', borderRadius: 'var(--radius-sm)' }}>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            <strong style={{ color: 'var(--text-primary)' }}>How it works:</strong> Configure your SMS forwarding service to send bank notification texts to the webhook URL below. The SMS content should be sent in the configured HTTP header.
+          </div>
+        </div>
+
+        {webhookLoading ? (
+          <div className="skeleton" style={{ height: 80 }} />
+        ) : webhooks.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+            No webhooks configured yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {webhooks.map(wh => (
+              <div key={wh.id} style={{ padding: 16, background: 'var(--glass-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>{wh.name}</h3>
+                    <span className={`badge ${wh.isActive ? 'badge-success' : 'badge-danger'}`}>
+                      {wh.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <input type="checkbox" className="toggle" checked={wh.isActive} onChange={() => handleToggleWebhook(wh)} />
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Webhook URL</div>
+                  <div className="webhook-url">
+                    <code>{getFullWebhookUrl(wh)}</code>
+                    <button className="btn-ghost btn-sm" onClick={() => copyToClipboard(getFullWebhookUrl(wh), `url-${wh.id}`)}>
+                      {copied === `url-${wh.id}` ? '✓' : '📋'}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>SMS Header</div>
+                  <div className="webhook-url">
+                    <code>{wh.headerName}</code>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => openEditWebhook(wh)}>✏️ Edit</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleRegenerateToken(wh.id)}>🔄 Regenerate Token</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteWebhook(wh.id)}>🗑️ Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Webhook Log */}
+      <div className="glass-card-static settings-section" style={{ padding: 24, marginBottom: 24 }}>
+        <h2 className="settings-section-title">📡 Webhook Log</h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+          View all incoming webhook messages and which ones were processed as transactions.
+        </p>
+
+        {/* Log Tabs */}
+        <div className="tabs" style={{ maxWidth: 400, marginBottom: 16 }}>
+          <div className={`tab${logTab === 'all' ? ' active' : ''}`} onClick={() => setLogTab('all')}>
+            All Messages ({webhookLogTotal})
+          </div>
+          <div className={`tab${logTab === 'transactions' ? ' active' : ''}`} onClick={() => setLogTab('transactions')}>
+            Budget Transactions
+          </div>
+        </div>
+
+        {logLoading ? (
+          <div style={{ padding: 16 }}>
+            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 40, marginBottom: 4 }} />)}
+          </div>
+        ) : webhookLog.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+            No webhook messages yet.
+          </div>
+        ) : (
+          <div style={{ overflow: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>SMS Content</th>
+                  {logTab === 'all' ? <th>Status</th> : <th>Budget</th>}
+                  {logTab === 'all' && <th>Detail</th>}
+                  {logTab === 'transactions' && <th>Amount</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {webhookLog.map(log => (
+                  <tr key={log.id}>
+                    <td data-label="Date" style={{ whiteSpace: 'nowrap', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                      {new Date(log.createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
+                        {new Date(log.createdAt).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td data-label="SMS" style={{ maxWidth: 300 }}>
+                      <div style={{ fontSize: '0.82rem', lineHeight: 1.4, wordBreak: 'break-word', maxHeight: 60, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {log.rawSms || '—'}
+                      </div>
+                    </td>
+                    {logTab === 'all' ? (
+                      <td data-label="Status">{getStatusBadge(log.status)}</td>
+                    ) : (
+                      <td data-label="Budget">
+                        {log.budgetTitle ? (
+                          <span className="badge badge-success">{log.budgetTitle}</span>
+                        ) : (
+                          <span className="badge badge-warning">Uncategorized</span>
+                        )}
+                      </td>
+                    )}
+                    {logTab === 'all' && (
+                      <td data-label="Detail" style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
+                        {log.matchedPattern && <span title="Matched pattern">🔇 {log.matchedPattern}</span>}
+                        {log.vendor && <span>{log.vendor} • {formatCurrency(log.amount)}</span>}
+                      </td>
+                    )}
+                    {logTab === 'transactions' && (
+                      <td data-label="Amount" style={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>
+                        {formatCurrency(log.amount)}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Ignored AI Patterns */}
@@ -329,6 +589,43 @@ export default function Settings() {
           {saving ? 'Deleting...' : '🗑️ Delete Account'}
         </button>
       </div>
+
+      {/* Webhook Modal */}
+      {showWebhookModal && (
+        <div className="modal-overlay" onClick={() => setShowWebhookModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{editingWebhook ? 'Edit Webhook' : 'New Webhook'}</h2>
+              <button className="btn-ghost btn-icon" onClick={() => setShowWebhookModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveWebhook}>
+              <div className="modal-body">
+                <div className="input-group">
+                  <label>Name</label>
+                  <input className="input" value={webhookForm.name}
+                    onChange={e => setWebhookForm({...webhookForm, name: e.target.value})}
+                    placeholder="e.g. Bank of America SMS" required autoFocus />
+                </div>
+                <div className="input-group">
+                  <label>SMS Header Name</label>
+                  <input className="input" value={webhookForm.headerName}
+                    onChange={e => setWebhookForm({...webhookForm, headerName: e.target.value})}
+                    placeholder="e.g. X-SMS-Body" />
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
+                    The HTTP header that contains the SMS text. Default: X-SMS-Body
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowWebhookModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={webhookSaving}>
+                  {webhookSaving ? 'Saving...' : editingWebhook ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

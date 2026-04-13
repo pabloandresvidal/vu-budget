@@ -6,6 +6,22 @@ import { sendPushNotification } from '../services/push.js';
 
 const router = Router();
 
+// Built-in payment confirmation phrases to always ignore
+const PAYMENT_PHRASES = [
+  'thanks for your payment',
+  'thank you for your payment',
+  'payment received',
+  'payment posted',
+  'payment confirmation',
+  'payment successful',
+  'payment has been received',
+  'payment has been applied',
+  'we received your payment',
+  'your payment of',
+  'payment was successful',
+  'payment processed',
+];
+
 // POST /api/webhook/:token
 // Receives SMS from bank forwarding service using the unique secret token
 router.post('/:token', async (req, res) => {
@@ -51,13 +67,29 @@ router.post('/:token', async (req, res) => {
 
     console.log(`[WEBHOOK] Step 2 — Final SMS text: "${smsText}"`);
 
+    // Check against built-in payment confirmation phrases
+    const smsLower = smsText.toLowerCase();
+    const matchedPayment = PAYMENT_PHRASES.find(phrase => smsLower.includes(phrase));
+    
+    if (matchedPayment) {
+      console.log(`[WEBHOOK] Dropped! SMS matches payment phrase: "${matchedPayment}"`);
+      db.prepare(`
+        INSERT INTO webhook_log (user_id, raw_sms, status, matched_pattern)
+        VALUES (?, ?, 'ignored_payment', ?)
+      `).run(ownerId, smsText, matchedPayment);
+      return res.status(200).json({ ignored: true, reason: 'Payment confirmation message', pattern: matchedPayment });
+    }
+
     // Check against user's AI exclusion rules
     const ignoredPatterns = db.prepare('SELECT pattern FROM ignored_patterns WHERE user_id = ?').all(ownerId);
-    const smsLower = smsText.toLowerCase();
     const matchedPattern = ignoredPatterns.find(p => smsLower.includes(p.pattern.toLowerCase()));
     
     if (matchedPattern) {
       console.log(`[WEBHOOK] Dropped! SMS matches AI exception rule: "${matchedPattern.pattern}"`);
+      db.prepare(`
+        INSERT INTO webhook_log (user_id, raw_sms, status, matched_pattern)
+        VALUES (?, ?, 'ignored_pattern', ?)
+      `).run(ownerId, smsText, matchedPattern.pattern);
       return res.status(200).json({ ignored: true, reason: 'Matched ignore pattern', pattern: matchedPattern.pattern });
     }
 
@@ -97,6 +129,12 @@ router.post('/:token', async (req, res) => {
       needsReview ? null : 'ai',
       needsReview
     );
+
+    // Log to webhook_log
+    db.prepare(`
+      INSERT INTO webhook_log (user_id, raw_sms, vendor, amount, status, transaction_id)
+      VALUES (?, ?, ?, ?, 'processed', ?)
+    `).run(ownerId, smsText, result.vendor, result.amount, txResult.lastInsertRowid);
 
     // Create in-app notification if needs review
     if (needsReview) {

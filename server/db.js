@@ -95,6 +95,20 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS webhook_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    raw_sms TEXT,
+    vendor TEXT,
+    amount REAL,
+    status TEXT NOT NULL,
+    transaction_id INTEGER,
+    matched_pattern TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
+  );
 `);
 
 // Run migrations for existing databases (add new columns if they don't exist)

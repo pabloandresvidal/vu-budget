@@ -12,7 +12,6 @@ import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Budgets from './pages/Budgets';
 import Transactions from './pages/Transactions';
-import Admin from './pages/Admin';
 import Settings from './pages/Settings';
 import VerifyEmail from './pages/VerifyEmail';
 import InstallPWA from './components/InstallPWA';
@@ -55,7 +54,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="budgets" element={<Budgets />} />
               <Route path="transactions" element={<Transactions />} />
-              <Route path="admin" element={<Admin />} />
+              <Route path="admin" element={<Navigate to="/settings" replace />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

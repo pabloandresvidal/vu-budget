@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../utils/api';
 
 function formatCurrency(n) {
@@ -6,14 +7,15 @@ function formatCurrency(n) {
 }
 
 export default function Transactions() {
+  const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('all'); // 'all' | 'pending'
+  const [tab, setTab] = useState(searchParams.get('tab') === 'pending' ? 'pending' : 'all');
   const [editingTx, setEditingTx] = useState(null);
   const [editForm, setEditForm] = useState({ budgetId: '', percentage: '100', vendor: '', description: '' });
   const [saving, setSaving] = useState(false);
-  const [filterBudget, setFilterBudget] = useState('');
+  const [filterBudget, setFilterBudget] = useState(searchParams.get('budgetId') || '');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -98,12 +100,19 @@ export default function Transactions() {
     return vendorMatch || descMatch || amountMatch || smsMatch;
   });
 
+  // Find the budget name for the active filter
+  const activeBudgetName = filterBudget ? budgets.find(b => String(b.id) === String(filterBudget))?.title : null;
+
   return (
-    <div>
+    <div className="page-enter">
       <div className="page-header">
         <div>
           <h1 className="page-title">Transactions</h1>
-          <p className="page-subtitle">View and manage your transaction history</p>
+          <p className="page-subtitle">
+            {activeBudgetName
+              ? `Showing transactions for "${activeBudgetName}"`
+              : 'View and manage your transaction history'}
+          </p>
         </div>
       </div>
 

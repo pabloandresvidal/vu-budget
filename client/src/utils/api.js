@@ -69,6 +69,14 @@ export const api = {
   updateWebhook: (id, data) => request(`/admin/webhooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteWebhook: (id) => request(`/admin/webhooks/${id}`, { method: 'DELETE' }),
   regenerateToken: (id) => request(`/admin/webhooks/${id}/regenerate`, { method: 'POST' }),
+  getWebhookLog: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/admin/webhooks/log${qs ? '?' + qs : ''}`);
+  },
+  getWebhookTransactions: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/admin/webhooks/log/transactions${qs ? '?' + qs : ''}`);
+  },
 
   // Notifications
   getNotifications: () => request('/notifications'),

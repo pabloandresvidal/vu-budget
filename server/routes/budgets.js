@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
     const ownerId = resolveOwnerId(req.user.id);
     const budgets = db.prepare(`
       SELECT b.*,
-        COALESCE(SUM(t.effective_amount), 0) as spent_amount
+        COALESCE(SUM(CASE WHEN t.created_at >= date('now', 'start of month') THEN t.effective_amount ELSE 0 END), 0) as spent_amount
       FROM budgets b
       LEFT JOIN transactions t ON t.budget_id = b.id
       WHERE b.user_id = ?
@@ -26,6 +26,7 @@ router.get('/', (req, res) => {
       title: b.title,
       description: b.description,
       totalAmount: b.total_amount,
+      spentAmount: b.spent_amount,
       remaining: b.total_amount - b.spent_amount,
       autoReset: !!b.auto_reset,
       carryOver: !!b.carry_over,
@@ -88,7 +89,7 @@ router.put('/:id', (req, res) => {
     );
 
     const updated = db.prepare(`
-      SELECT b.*, COALESCE(SUM(t.effective_amount), 0) as spent_amount
+      SELECT b.*, COALESCE(SUM(CASE WHEN t.created_at >= date('now', 'start of month') THEN t.effective_amount ELSE 0 END), 0) as spent_amount
       FROM budgets b LEFT JOIN transactions t ON t.budget_id = b.id
       WHERE b.id = ? GROUP BY b.id
     `).get(req.params.id);

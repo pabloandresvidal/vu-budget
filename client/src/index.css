@@ -982,6 +982,11 @@ select.input {
   font-weight: 700;
 }
 
+.budget-card.overspent {
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  box-shadow: 0 0 20px rgba(248, 113, 113, 0.08), var(--glass-shadow);
+}
+
 /* --- Actions Dropdown --- */
 .actions-menu {
   position: relative;

@@ -19,6 +19,7 @@ router.get('/summary', (req, res) => {
     const spentSummary = db.prepare(`
       SELECT COALESCE(SUM(t.effective_amount), 0) as total_spent
       FROM transactions t WHERE t.user_id = ? AND t.budget_id IS NOT NULL
+      AND t.created_at >= date('now', 'start of month')
     `).get(ownerId);
 
     const pendingCount = db.prepare(
@@ -51,7 +52,7 @@ router.get('/by-category', (req, res) => {
         b.id,
         b.title,
         b.total_amount,
-        COALESCE(SUM(t.effective_amount), 0) as spent
+        COALESCE(SUM(CASE WHEN t.created_at >= date('now', 'start of month') THEN t.effective_amount ELSE 0 END), 0) as spent
       FROM budgets b
       LEFT JOIN transactions t ON t.budget_id = b.id
       WHERE b.user_id = ?
@@ -63,6 +64,7 @@ router.get('/by-category', (req, res) => {
     const uncategorized = db.prepare(`
       SELECT COALESCE(SUM(effective_amount), 0) as spent
       FROM transactions WHERE user_id = ? AND budget_id IS NULL
+      AND created_at >= date('now', 'start of month')
     `).get(ownerId);
 
     const result = categories.map(c => ({

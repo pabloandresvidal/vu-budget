@@ -259,8 +259,8 @@ export default function Dashboard() {
         <div className="glass-card-static chart-container">
           <div className="chart-title">Spending Trend (30 Days)</div>
           {trend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={trend}>
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={trend} margin={{ top: 5, right: 20, left: 10, bottom: 25 }}>
                 <defs>
                   <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.3} />
@@ -268,13 +268,13 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+                <XAxis dataKey="date" tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }}
                   tickFormatter={d => new Date(d + 'T00:00').toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                   axisLine={false} tickLine={false}
-                  label={{ value: 'Date', position: 'insideBottom', offset: -2, fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+                  label={{ value: 'Date', position: 'insideBottom', offset: -15, fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} />
+                <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }}
                   tickFormatter={v => `$${v}`} axisLine={false} tickLine={false}
-                  label={{ value: 'Amount ($)', angle: -90, position: 'insideLeft', offset: 10, fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} />
+                  label={{ value: 'Amount ($)', angle: -90, position: 'insideLeft', offset: 0, fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area type="monotone" dataKey="total" stroke="#7c3aed" strokeWidth={2}
                   fill="url(#trendGradient)" name="Spent" />

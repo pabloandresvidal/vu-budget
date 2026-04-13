@@ -117,4 +117,73 @@ router.post('/:id/regenerate', (req, res) => {
   }
 });
 
+// Webhook Log — all incoming messages
+router.get('/log', (req, res) => {
+  try {
+    const ownerId = resolveOwnerId(req.user.id);
+    const { limit = 100, offset = 0 } = req.query;
+    const logs = db.prepare(`
+      SELECT * FROM webhook_log
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(ownerId, Number(limit), Number(offset));
+
+    const { total } = db.prepare('SELECT COUNT(*) as total FROM webhook_log WHERE user_id = ?').get(ownerId);
+
+    res.json({
+      logs: logs.map(l => ({
+        id: l.id,
+        rawSms: l.raw_sms,
+        vendor: l.vendor,
+        amount: l.amount,
+        status: l.status,
+        transactionId: l.transaction_id,
+        matchedPattern: l.matched_pattern,
+        createdAt: l.created_at
+      })),
+      total
+    });
+  } catch (err) {
+    console.error('Webhook log error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Webhook Log — only processed transactions
+router.get('/log/transactions', (req, res) => {
+  try {
+    const ownerId = resolveOwnerId(req.user.id);
+    const { limit = 100, offset = 0 } = req.query;
+    const logs = db.prepare(`
+      SELECT wl.*, t.vendor as tx_vendor, t.amount as tx_amount, t.budget_id, b.title as budget_title
+      FROM webhook_log wl
+      LEFT JOIN transactions t ON wl.transaction_id = t.id
+      LEFT JOIN budgets b ON t.budget_id = b.id
+      WHERE wl.user_id = ? AND wl.status = 'processed'
+      ORDER BY wl.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(ownerId, Number(limit), Number(offset));
+
+    const { total } = db.prepare("SELECT COUNT(*) as total FROM webhook_log WHERE user_id = ? AND status = 'processed'").get(ownerId);
+
+    res.json({
+      logs: logs.map(l => ({
+        id: l.id,
+        rawSms: l.raw_sms,
+        vendor: l.tx_vendor || l.vendor,
+        amount: l.tx_amount || l.amount,
+        status: l.status,
+        transactionId: l.transaction_id,
+        budgetTitle: l.budget_title,
+        createdAt: l.created_at
+      })),
+      total
+    });
+  } catch (err) {
+    console.error('Webhook log transactions error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

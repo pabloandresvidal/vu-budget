@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 
 function formatCurrency(n) {
@@ -6,6 +7,7 @@ function formatCurrency(n) {
 }
 
 export default function Budgets() {
+  const navigate = useNavigate();
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -62,6 +64,11 @@ export default function Budgets() {
     setMenuOpen(null);
   }
 
+  function viewTransactions(b) {
+    setMenuOpen(null);
+    navigate(`/transactions?budgetId=${b.id}`);
+  }
+
   if (loading) {
     return (
       <div>
@@ -92,10 +99,12 @@ export default function Budgets() {
       ) : (
         <div className="budget-grid">
           {budgets.map(b => {
-            const pct = b.totalAmount > 0 ? Math.min((b.spentAmount / b.totalAmount) * 100, 100) : 0;
-            const isOver = b.spentAmount > b.totalAmount;
+            const spent = b.spentAmount || 0;
+            const pct = b.totalAmount > 0 ? Math.min((spent / b.totalAmount) * 100, 100) : 0;
+            const isOver = spent > b.totalAmount;
+            const isNegative = b.remaining < 0;
             return (
-              <div key={b.id} className="glass-card budget-card">
+              <div key={b.id} className={`glass-card budget-card${isNegative ? ' overspent' : ''}`}>
                 <div className="budget-card-header">
                   <div>
                     <div className="budget-title">{b.title}</div>
@@ -109,6 +118,7 @@ export default function Budgets() {
                     <button className="btn-ghost btn-icon" onClick={() => setMenuOpen(menuOpen === b.id ? null : b.id)}>⋮</button>
                     {menuOpen === b.id && (
                       <div className="actions-dropdown">
+                        <button onClick={() => viewTransactions(b)}>📋 View Transactions</button>
                         <button onClick={() => openEdit(b)}>✏️ Edit</button>
                         <button className="danger" onClick={() => handleDelete(b.id)}>🗑️ Delete</button>
                       </div>
@@ -116,7 +126,7 @@ export default function Budgets() {
                   </div>
                 </div>
 
-                <div className="budget-amount" style={{ color: isOver ? '#fca5a5' : '#6ee7b7' }}>
+                <div className="budget-amount" style={{ color: isNegative ? '#f87171' : isOver ? '#fca5a5' : '#6ee7b7' }}>
                   {formatCurrency(b.remaining)} <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 400 }}>remaining</span>
                 </div>
 
@@ -125,7 +135,7 @@ export default function Budgets() {
                     <div className={`budget-progress-fill${isOver ? ' over' : ''}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                   </div>
                   <div className="budget-progress-labels">
-                    <span>{formatCurrency(b.spentAmount)} spent</span>
+                    <span>{formatCurrency(spent)} spent</span>
                     <span>{formatCurrency(b.totalAmount)} total</span>
                   </div>
                 </div>
