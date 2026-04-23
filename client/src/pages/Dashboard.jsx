@@ -3,7 +3,7 @@ import { api } from '../utils/api';
 import { useCurrency } from '../context/CurrencyContext';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area,
-  XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar
+  XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, ReferenceLine
 } from 'recharts';
 
 const COLORS = ['#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6'];
@@ -15,35 +15,37 @@ function urlBase64ToUint8Array(base64String) {
   return new Uint8Array([...rawData].map((char) => char.charCodeAt(0)));
 }
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{
-      background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)',
-      color: 'var(--text-primary)',
-      borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem',
-      boxShadow: 'var(--glass-shadow)'
-    }}>
-      <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>{label}</div>
-      {payload.map((p, i) => (
-        <div key={i} style={{ color: p.color || '#a78bfa' }}>
-          {p.name}: {formatCurrency(p.value)}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 export default function Dashboard() {
   const { formatCurrency } = useCurrency();
   const [summary, setSummary] = useState(null);
   const [categories, setCategories] = useState([]);
   const [trend, setTrend] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [burnRate, setBurnRate] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [pushPermission, setPushPermission] = useState('granted');
+
+  // CustomTooltip defined inside so it has access to formatCurrency
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{
+        background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)',
+        color: 'var(--text-primary)',
+        borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem',
+        boxShadow: 'var(--glass-shadow)'
+      }}>
+        <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>{label}</div>
+        {payload.map((p, i) => (
+          <div key={i} style={{ color: p.color || '#a78bfa' }}>
+            {p.name}: {formatCurrency(p.value)}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -56,12 +58,61 @@ export default function Dashboard() {
       ]);
       setSummary(s); setCategories(c); setTrend(t); setVendors(v);
       setLastUpdated(new Date());
+
+      // Build burn rate data from summary + trend
+      if (s && s.totalBudget > 0) {
+        buildBurnRate(s.totalBudget, t);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       if (!silent) setLoading(false);
     }
   }, []);
+
+  function buildBurnRate(totalBudget, trendData) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = now.getDate();
+
+    // Build a map of daily spending from trend data (current month only)
+    const spendByDay = {};
+    for (const t of trendData) {
+      const d = new Date(t.date + 'T00:00');
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        spendByDay[d.getDate()] = t.total;
+      }
+    }
+
+    // Build day-by-day burn rate
+    const data = [];
+    let remaining = totalBudget;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = new Date(year, month, day).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+      const idealRemaining = totalBudget * (1 - (day - 1) / (daysInMonth - 1));
+
+      if (day <= today) {
+        const spent = spendByDay[day] || 0;
+        remaining -= spent;
+        data.push({
+          day: dateStr,
+          remaining: Math.max(0, remaining),
+          ideal: Math.round(idealRemaining * 100) / 100,
+        });
+      } else {
+        data.push({
+          day: dateStr,
+          remaining: null,
+          ideal: Math.round(idealRemaining * 100) / 100,
+        });
+      }
+    }
+
+    setBurnRate(data);
+  }
 
   useEffect(() => {
     loadData();
@@ -103,7 +154,6 @@ export default function Dashboard() {
         const serverKeyBuffer = urlBase64ToUint8Array(publicKey);
 
         if (sub) {
-          // Compare browser's existing server key to backend's current key
           const currentKey = new Uint8Array(sub.options.applicationServerKey);
           let match = currentKey.length === serverKeyBuffer.length;
           if (match) {
@@ -217,6 +267,76 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Budget Burn Rate */}
+      {burnRate.length > 0 && (
+        <div className="glass-card-static chart-container" style={{ marginBottom: 'var(--space-lg)' }}>
+          <div className="chart-title">🔥 Budget Burn Rate — {new Date().toLocaleDateString('en', { month: 'long', year: 'numeric' })}</div>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)', marginBottom: 12, marginTop: -4 }}>
+            Track how your remaining budget decreases daily vs. the ideal pace
+          </p>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={burnRate} margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
+              <defs>
+                <linearGradient id="burnGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#06b6d4" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="idealGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.08} />
+                  <stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis
+                dataKey="day"
+                tick={{ fill: 'var(--text-tertiary)', fontSize: 10 }}
+                axisLine={false} tickLine={false}
+                interval={Math.max(0, Math.floor(burnRate.length / 8) - 1)}
+                label={{ value: 'Day of Month', position: 'insideBottom', offset: -15, fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }}
+              />
+              <YAxis
+                tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }}
+                tickFormatter={v => `$${v}`}
+                axisLine={false} tickLine={false}
+                label={{ value: 'Remaining ($)', angle: -90, position: 'insideLeft', offset: 0, fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <ReferenceLine y={0} stroke="rgba(239, 68, 68, 0.4)" strokeDasharray="4 4" />
+              <Area
+                type="monotone"
+                dataKey="ideal"
+                stroke="rgba(124, 58, 237, 0.4)"
+                strokeWidth={1.5}
+                strokeDasharray="6 3"
+                fill="url(#idealGradient)"
+                name="Ideal Pace"
+                connectNulls
+              />
+              <Area
+                type="monotone"
+                dataKey="remaining"
+                stroke="#06b6d4"
+                strokeWidth={2.5}
+                fill="url(#burnGradient)"
+                name="Actual Remaining"
+                connectNulls
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          {/* Legend */}
+          <div style={{ display: 'flex', gap: 24, justifyContent: 'center', marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}>
+              <span style={{ width: 20, height: 3, background: '#06b6d4', borderRadius: 2, display: 'inline-block' }} />
+              <span style={{ color: 'var(--text-secondary)' }}>Actual Remaining</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}>
+              <span style={{ width: 20, height: 2, background: 'rgba(124, 58, 237, 0.5)', borderRadius: 2, display: 'inline-block', borderTop: '2px dashed rgba(124, 58, 237, 0.5)' }} />
+              <span style={{ color: 'var(--text-secondary)' }}>Ideal Pace</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 'var(--space-lg)', marginBottom: 'var(--space-lg)' }}>
