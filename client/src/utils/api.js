@@ -102,4 +102,13 @@ export const api = {
   // Push
   getVapidKey: () => request('/push/vapid-key'),
   subscribePush: (data) => request('/push/subscribe', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Passkeys
+  getPasskeys: () => request('/passkey/credentials'),
+  getPasskeyRegisterOptions: () => request('/passkey/register-options', { method: 'POST' }),
+  verifyPasskeyRegistration: (body, name) => request('/passkey/register-verify', { method: 'POST', body: JSON.stringify({ body, name }) }),
+  deletePasskey: (id) => request(`/passkey/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  renamePasskey: (id, name) => request(`/passkey/${encodeURIComponent(id)}/rename`, { method: 'PUT', body: JSON.stringify({ name }) }),
+  getPasskeyAuthOptions: (email) => request('/passkey/auth-options', { method: 'POST', body: JSON.stringify({ email }) }),
+  verifyPasskeyAuth: (body, email) => request('/passkey/auth-verify', { method: 'POST', body: JSON.stringify({ body, email }) }),
 };

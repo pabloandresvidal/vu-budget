@@ -109,6 +109,19 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
   );
+
+  CREATE TABLE IF NOT EXISTS passkey_credentials (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    public_key BLOB NOT NULL,
+    counter INTEGER DEFAULT 0,
+    device_type TEXT,
+    backed_up INTEGER DEFAULT 0,
+    transports TEXT,
+    name TEXT DEFAULT 'Passkey',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 // Run migrations for existing databases (add new columns if they don't exist)
@@ -149,5 +162,8 @@ runMigration(`ALTER TABLE budgets ADD COLUMN last_reset_at TEXT`);
 
 // Currency preference
 runMigration(`ALTER TABLE users ADD COLUMN currency TEXT DEFAULT 'USD'`);
+
+// Passkey / WebAuthn
+runMigration(`ALTER TABLE users ADD COLUMN current_challenge TEXT`);
 
 export default db;

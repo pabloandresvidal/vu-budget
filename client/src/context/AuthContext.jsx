@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { startAuthentication } from '@simplewebauthn/browser';
 import { api } from '../utils/api';
 
 const AuthContext = createContext(null);
@@ -63,8 +64,18 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const loginWithPasskey = async (email) => {
+    const options = await api.getPasskeyAuthOptions(email);
+    const authResponse = await startAuthentication({ optionsJSON: options });
+    const data = await api.verifyPasskeyAuth(authResponse, email);
+    localStorage.setItem('vu_token', data.token);
+    localStorage.setItem('vu_user', JSON.stringify(data.user));
+    setUser(data.user);
+    return data;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, loginWithCode }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, loginWithCode, loginWithPasskey }}>
       {children}
     </AuthContext.Provider>
   );

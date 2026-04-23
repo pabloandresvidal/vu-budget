@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { startRegistration } from '@simplewebauthn/browser';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -33,6 +34,14 @@ export default function Settings() {
   const [webhookForm, setWebhookForm] = useState({ name: '', headerName: 'X-SMS-Body' });
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [copied, setCopied] = useState(null);
+
+  // Passkey state
+  const [passkeys, setPasskeys] = useState([]);
+  const [passkeyLoading, setPasskeyLoading] = useState(true);
+  const [passkeyAdding, setPasskeyAdding] = useState(false);
+  const [passkeyNameInput, setPasskeyNameInput] = useState('');
+  const [renamingPasskey, setRenamingPasskey] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // Webhook log state
   const [webhookLog, setWebhookLog] = useState([]);
@@ -70,6 +79,7 @@ export default function Settings() {
     // Load webhooks
     loadWebhooks();
     loadWebhookLog();
+    loadPasskeys();
   }
 
   async function loadWebhooks() {
@@ -243,6 +253,62 @@ export default function Settings() {
     setTimeout(() => setCopied(null), 2000);
   }
 
+  // ── Passkey handlers ──
+  async function loadPasskeys() {
+    setPasskeyLoading(true);
+    try {
+      const data = await api.getPasskeys();
+      setPasskeys(data);
+    } catch (err) { console.error(err); }
+    finally { setPasskeyLoading(false); }
+  }
+
+  async function handleAddPasskey() {
+    setPasskeyAdding(true);
+    setMsg({ type: '', text: '' });
+    try {
+      const options = await api.getPasskeyRegisterOptions();
+      const regResponse = await startRegistration({ optionsJSON: options });
+      await api.verifyPasskeyRegistration(regResponse, passkeyNameInput || 'Passkey');
+      setPasskeyNameInput('');
+      showMsg('success', 'Passkey registered successfully! You can now use it to sign in.');
+      loadPasskeys();
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        showMsg('error', 'Passkey registration was cancelled.');
+      } else {
+        showMsg('error', err.message || 'Failed to register passkey');
+      }
+    } finally {
+      setPasskeyAdding(false);
+    }
+  }
+
+  async function handleDeletePasskey(id) {
+    if (!confirm('Delete this passkey? You will no longer be able to sign in with it.')) return;
+    try {
+      await api.deletePasskey(id);
+      showMsg('success', 'Passkey deleted.');
+      loadPasskeys();
+    } catch (err) {
+      showMsg('error', err.message || 'Failed to delete passkey');
+    }
+  }
+
+  async function handleRenamePasskey(id) {
+    if (!renameValue.trim()) return;
+    try {
+      await api.renamePasskey(id, renameValue.trim());
+      setRenamingPasskey(null);
+      setRenameValue('');
+      loadPasskeys();
+    } catch (err) {
+      showMsg('error', err.message || 'Failed to rename passkey');
+    }
+  }
+
+  const supportsPasskeys = typeof window !== 'undefined' && typeof window.PublicKeyCredential !== 'undefined';
+
   function getFullWebhookUrl(wh) {
     const base = window.location.origin;
     return `${base}${wh.webhookUrl}`;
@@ -360,6 +426,105 @@ export default function Settings() {
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Passkeys */}
+      <div className="glass-card-static settings-section" style={{ padding: 24, marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--glass-border)' }}>
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0 }}>🔑 Passkeys</h2>
+        </div>
+
+        {!supportsPasskeys ? (
+          <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            ⚠️ Your browser doesn't support passkeys. Try using a modern browser like Chrome, Safari, or Edge.
+          </div>
+        ) : (
+          <>
+            <div style={{ padding: '12px 16px', marginBottom: 16, borderLeft: '3px solid var(--accent-primary)', background: 'var(--glass-bg)', borderRadius: 'var(--radius-sm)' }}>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                <strong style={{ color: 'var(--text-primary)' }}>What are passkeys?</strong> Passkeys let you sign in using your device's biometrics (Face ID, Touch ID, fingerprint) or PIN — no password needed. They're phishing-resistant and more secure than passwords.
+              </div>
+            </div>
+
+            {/* Add passkey */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-tertiary)', marginBottom: 4 }}>Passkey Name (optional)</label>
+                <input
+                  className="input"
+                  value={passkeyNameInput}
+                  onChange={e => setPasskeyNameInput(e.target.value)}
+                  placeholder='e.g. "MacBook Pro", "iPhone"'
+                  disabled={passkeyAdding}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleAddPasskey}
+                disabled={passkeyAdding}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {passkeyAdding ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="spinner-sm" />
+                    Registering…
+                  </span>
+                ) : '+ Add Passkey'}
+              </button>
+            </div>
+
+            {/* Passkey list */}
+            {passkeyLoading ? (
+              <div className="skeleton" style={{ height: 80 }} />
+            ) : passkeys.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                No passkeys registered yet. Add one above to enable passwordless sign-in.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {passkeys.map(pk => (
+                  <div key={pk.id} style={{ padding: 14, background: 'var(--glass-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: '1.3rem' }}>
+                          {pk.deviceType === 'multiDevice' ? '☁️' : '🔐'}
+                        </span>
+                        <div>
+                          {renamingPasskey === pk.id ? (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <input
+                                className="input"
+                                value={renameValue}
+                                onChange={e => setRenameValue(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleRenamePasskey(pk.id)}
+                                style={{ padding: '4px 8px', fontSize: '0.85rem', width: 160 }}
+                                autoFocus
+                              />
+                              <button className="btn-ghost btn-sm" onClick={() => handleRenamePasskey(pk.id)}>✓</button>
+                              <button className="btn-ghost btn-sm" onClick={() => { setRenamingPasskey(null); setRenameValue(''); }}>✕</button>
+                            </div>
+                          ) : (
+                            <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{pk.name}</div>
+                          )}
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
+                            {pk.deviceType === 'multiDevice' ? 'Synced passkey' : 'Device-bound'}
+                            {pk.backedUp && ' • Backed up'}
+                            {' • Added '}
+                            {new Date(pk.createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => { setRenamingPasskey(pk.id); setRenameValue(pk.name); }}>✏️ Rename</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDeletePasskey(pk.id)}>🗑️ Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Webhook Configuration */}

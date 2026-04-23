@@ -4,3 +4,4 @@ server/data/
 client/dist/
 *.sqlite
 *.db
+server/vapid-keys.json

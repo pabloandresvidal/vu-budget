@@ -26,6 +26,7 @@ import partnerRoutes from './routes/partner.js';
 import settingsRoutes from './routes/settings.js';
 import pushRoutes from './routes/push.js';
 import ignoredPatternsRoutes from './routes/ignoredPatterns.js';
+import passkeyRoutes from './routes/passkey.js';
 
 import { startResetScheduler } from './services/budgetReset.js';
 import { startCronScheduler } from './services/cron.js';
@@ -125,6 +126,13 @@ const codeVerifyLimiter = rateLimit({
   validate: { xForwardedForHeader: false }
 });
 
+const passkeyAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Max 10 passkey auth attempts per 15 min per IP
+  message: { error: 'Too many passkey attempts. Please try again later.' },
+  validate: { xForwardedForHeader: false }
+});
+
 // 3. Webhook Limiter
 const webhookLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -144,6 +152,8 @@ app.use('/api/auth/forgot-password', resetLimiter);
 app.use('/api/auth/reset-password', resetLimiter);
 app.use('/api/auth/request-code', codeRequestLimiter);
 app.use('/api/auth/verify-code', codeVerifyLimiter);
+app.use('/api/passkey/auth-options', passkeyAuthLimiter);
+app.use('/api/passkey/auth-verify', passkeyAuthLimiter);
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/budgets', budgetRoutes);
@@ -156,6 +166,7 @@ app.use('/api/partner', partnerRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/ignored-patterns', ignoredPatternsRoutes);
+app.use('/api/passkey', passkeyRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -3,15 +3,20 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 
+const supportsPasskeys = () => {
+  return typeof window !== 'undefined' &&
+    typeof window.PublicKeyCredential !== 'undefined';
+};
+
 export default function Login() {
-  const { login, loginWithCode } = useAuth();
+  const { login, loginWithCode, loginWithPasskey } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('password'); // 'password' | 'code'
+  const [mode, setMode] = useState('password'); // 'password' | 'code' | 'passkey'
   const [codeSent, setCodeSent] = useState(false);
   const [codeMessage, setCodeMessage] = useState('');
 
@@ -61,6 +66,24 @@ export default function Login() {
     }
   }
 
+  async function handlePasskeyLogin(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithPasskey(email);
+    } catch (err) {
+      // User cancelled the ceremony
+      if (err.name === 'NotAllowedError') {
+        setError('Passkey authentication was cancelled.');
+      } else {
+        setError(err.message || 'Passkey authentication failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function switchMode(newMode) {
     setMode(newMode);
     setError('');
@@ -86,38 +109,29 @@ export default function Login() {
           background: 'var(--glass-bg)', borderRadius: 12, padding: 4,
           border: '1px solid var(--glass-border)',
         }}>
-          <button
-            type="button"
-            onClick={() => switchMode('password')}
-            style={{
-              flex: 1, padding: '10px 16px', borderRadius: 10, border: 'none',
-              background: mode === 'password'
-                ? 'var(--accent-primary)'
-                : 'transparent',
-              color: mode === 'password' ? '#fff' : 'var(--text-tertiary)',
-              fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
-              transition: 'all 0.25s ease',
-              boxShadow: mode === 'password' ? '0 2px 12px rgba(124, 58, 237, 0.4)' : 'none',
-            }}
-          >
-            Password
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode('code')}
-            style={{
-              flex: 1, padding: '10px 16px', borderRadius: 10, border: 'none',
-              background: mode === 'code'
-                ? 'var(--accent-primary)'
-                : 'transparent',
-              color: mode === 'code' ? '#fff' : 'var(--text-tertiary)',
-              fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
-              transition: 'all 0.25s ease',
-              boxShadow: mode === 'code' ? '0 2px 12px rgba(124, 58, 237, 0.4)' : 'none',
-            }}
-          >
-            Passwordless
-          </button>
+          {[
+            { key: 'password', label: 'Password' },
+            { key: 'code', label: 'Passwordless' },
+            ...(supportsPasskeys() ? [{ key: 'passkey', label: '🔑 Passkey' }] : []),
+          ].map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => switchMode(tab.key)}
+              style={{
+                flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none',
+                background: mode === tab.key
+                  ? 'var(--accent-primary)'
+                  : 'transparent',
+                color: mode === tab.key ? '#fff' : 'var(--text-tertiary)',
+                fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer',
+                transition: 'all 0.25s ease',
+                boxShadow: mode === tab.key ? '0 2px 12px rgba(124, 58, 237, 0.4)' : 'none',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {needsVerification && (
@@ -192,6 +206,35 @@ export default function Login() {
           </form>
         )}
 
+        {/* PASSKEY MODE */}
+        {mode === 'passkey' && (
+          <form className="auth-form" onSubmit={handlePasskeyLogin}>
+            <div style={{
+              textAlign: 'center', padding: '16px 0 8px',
+              fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6,
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🔑</div>
+              Sign in instantly with your device's biometrics, PIN, or security key.
+            </div>
+            <div className="input-group">
+              <label htmlFor="passkey-email">Email Address</label>
+              <input id="passkey-email" className="input" type="email" placeholder="you@example.com"
+                value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+            </div>
+            <button className="btn btn-primary" type="submit" disabled={loading || !email}>
+              {loading ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <span className="spinner-sm" />
+                  Authenticating…
+                </span>
+              ) : '🔑 Sign in with Passkey'}
+            </button>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 8 }}>
+              You'll be prompted by your browser to verify with Face ID, Touch ID, Windows Hello, or your device PIN.
+            </p>
+          </form>
+        )}
+
         <div className="auth-footer">
           Don't have an account? <Link to="/register">Create one</Link>
         </div>
@@ -199,3 +242,4 @@ export default function Login() {
     </div>
   );
 }
+
